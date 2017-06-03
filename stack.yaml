@@ -1,0 +1,13 @@
+resolver: lts-8.16
+
+packages:
+- '.'
+extra-deps: [sparse-lin-alg-0.4.3]
+
+flags: {}
+
+extra-package-dbs: []
+
+nix:
+  enable: true
+  packages: [gcc, ncurses]
