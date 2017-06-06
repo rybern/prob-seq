@@ -5,7 +5,13 @@ import Data.Vector
 import Data.Vector as V
 import Sampling
 import Types
-import TransitionComposition
+import Sequence
+import SequenceCompositions
+import SparseTransFiles
+import CLI
+
+import MatrixUtils
+import qualified Math.LinearAlgebra.Sparse as M
 
 {-
 The potential complications come from not annotating/using structural information. Strategies for joining two sequences that attempt to use structural information will have to attempt to regain that structural information, and that will be complicated.
@@ -27,23 +33,21 @@ Clean up the transition matrix definitions so that:
   - edge cases are handled, like sequence ([[1]], []) is the identity sequence
 -}
 
-{-
-Rewrite without the whole 'token wrapping', and with one start and some number of ends.
--}
-
 deterministicSequence' = deterministicSequence . V.fromList
-like = deterministicSequence' "I like "
 apple = deterministicSequence' "apples"
 banana = deterministicSequence' "bananas"
 question = deterministicSequence' "?"
 exclaim = deterministicSequence' "!"
 assert = deterministicSequence' "."
 
-punctuation = uniformDist [question, exclaim, assert]
+apples = apple `andThen` punctuation
+
+punctuation = uniformDistOver [question, exclaim, assert]
 
 whatILike = let evenChance = eitherOr 0.5
-            in like `andThen` (apple `evenChance` banana) `andThen` punctuation
+            in (apple `evenChance` banana) `andThen` punctuation
 
-main = do
-  seq <- sample whatILike
-  return $ V.toList seq
+a = deterministicSequence' "a"
+a' = finiteDistRepeat [0, 0.1, 0.6, 0.3] a
+
+main = runCLI

@@ -2,7 +2,12 @@ resolver: lts-8.16
 
 packages:
 - '.'
-extra-deps: [sparse-lin-alg-0.4.3]
+- location:
+    git: https://github.com/rybern/construction-files.git
+    commit: 088d9243caca9a6af1730bfe0d9f2a6cc6fa82cd
+
+extra-deps: [ sparse-lin-alg-0.4.3
+            , eigen-2.1.6]
 
 flags: {}
 
@@ -10,4 +15,4 @@ extra-package-dbs: []
 
 nix:
   enable: true
-  packages: [gcc, ncurses]
+  packages: [liblapack, blas, git, gcc, ncurses]

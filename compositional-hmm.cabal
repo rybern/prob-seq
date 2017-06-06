@@ -23,3 +23,7 @@ executable compositional-hmm
                      , MonadRandom
                      , random
                      , monad-loops
+                     , tinylang
+                     , text
+                     , filepath
+                     , optparse-applicative

@@ -2,6 +2,7 @@ module Sampling where
 
 import qualified Math.LinearAlgebra.Sparse as M
 import Types
+import Sequence
 import qualified Data.Vector as V
 import Control.Monad.Random
 import System.Random
@@ -16,7 +17,7 @@ randToIO r = evalRand r <$> newStdGen
 
 sample' :: Sequence s -> Rand' (V.Vector s)
 sample' seq = do
-  ixs <- sampleTrans (transMatrix seq)
+  ixs <- sampleTrans (getTrans seq)
   let nontokenIxs = V.filter (\ix -> ix /= 1 && ix /= V.last ixs) ixs
   return $ V.map ((stateIxs seq V.!) . (\x -> x - 2)) nontokenIxs
 
