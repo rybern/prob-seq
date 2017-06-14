@@ -14,22 +14,27 @@ import System.FilePath.Posix
 
 -- getTrans isn't exactly right
 
-writeSTFile :: (Show s) => FilePath -> Sequence s -> IO ()
+writeSTFile :: FilePath -> Sequence Char -> IO ()
 writeSTFile = writeSeqToFile (addFixedEndRow . collapseEnds . trans) "st"
 
-writeSTPFile :: (Show s) => FilePath -> Sequence s -> IO ()
+writeSTPFile :: FilePath -> Sequence Char -> IO ()
 writeSTPFile = writeSeqToFile trans "stp"
 
-writeSeqToFile :: (Show a)
-               => (Sequence a -> M.SparseMatrix Prob)
+writeSeqToFile :: -- (Show a)
+                (Sequence Char -> M.SparseMatrix Prob)
                -> String
                -> FilePath
-               -> Sequence a
+               -> Sequence Char
                -> IO ()
 writeSeqToFile t extension fp seq = withFile (fp ++ "." ++ extension) WriteMode $ \h -> do
+  {-
   -- write header
   hPutStr h "# "
   mapM_ (hPutStr h) (intersperse " " . map show . V.toList $ stateIxs seq)
+  hPutStrLn h ""
+  -}
+  hPutStr h "# "
+  hPutStr h (V.toList $ stateIxs seq)
   hPutStrLn h ""
 
   -- write matrix lines
@@ -38,26 +43,27 @@ writeSeqToFile t extension fp seq = withFile (fp ++ "." ++ extension) WriteMode 
         showElem ((r, c), val) = show (pred r) ++ " " ++ show (pred c) ++ " " ++ show val
 
 
-readSTFile :: (Read a)
-           => FilePath
-           -> IO (Sequence a)
+readSTFile :: -- (Read a)
+            FilePath
+           -> IO (Sequence Char)
 readSTFile = readSeqFromFile (\t s -> Sequence (snd . M.popRow (M.height t) $ t) s)
 
-readSTPFile :: (Read a)
-           => FilePath
-           -> IO (Sequence a)
+readSTPFile :: -- (Read a)
+           FilePath
+           -> IO (Sequence Char)
 readSTPFile = readSeqFromFile Sequence
 
 -- should probably use attoparsec..
-readSeqFromFile :: (Read a)
-                => (M.SparseMatrix Prob -> V.Vector a -> Sequence a)
+readSeqFromFile :: -- (Read a)
+                (M.SparseMatrix Prob -> V.Vector Char -> Sequence Char)
                 -> FilePath
-                -> IO (Sequence a)
+                -> IO (Sequence Char)
 readSeqFromFile seqFn fp = do
-  ((_:header):matLines) <- map words . lines <$> readFile fp
+  ((_:header:_):matLines) <- map words . lines <$> readFile fp
 
   let assocList [r, c, val] = ((succ (read r), succ (read c)), read val)
 
   return $ seqFn
     (M.fromAssocList $ map assocList matLines)
-    (V.map read $ V.fromList header)
+    (V.fromList header)
+    --(V.map read $ V.fromList header)

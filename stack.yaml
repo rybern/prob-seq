@@ -4,7 +4,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/rybern/construction-files.git
-    commit: 088d9243caca9a6af1730bfe0d9f2a6cc6fa82cd
+    commit: 5999d5b5ba8e2f56e85193c5bd7570fa0c9f63ec
 
 extra-deps: [ sparse-lin-alg-0.4.3
             , eigen-2.1.6]

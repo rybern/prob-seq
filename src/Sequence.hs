@@ -63,23 +63,6 @@ deterministicSequence states = Sequence {
   , stateIxs = states
   }
 
-andThen :: Sequence s -> Sequence s -> Sequence s
-andThen seqA seqB = Sequence {
-    trans = trans'
-  , stateIxs = stateIxs'
-  }
-  where stateIxs' = stateIxs seqA <> stateIxs seqB
-
-        transA = trans seqA
-        transB = trans seqB
-        (mainA, endsA) = splitEnds transA
-        (_, nonstartB) = splitStart transB
-        transition = transB `distributeEnds` endsA
-        rightLen = max (M.width transition) (M.width transB)
-        lowerLeft = M.zeroMx (M.height nonstartB, M.width mainA)
-        trans' = M.blockMx [ [mainA, setWidth rightLen transition]
-                           , [lowerLeft, setWidth rightLen nonstartB] ]
-
 eitherOr :: Prob -> Sequence s -> Sequence s -> Sequence s
 eitherOr p a b = Sequence {
     trans = joinTransTokens (start, mainTrans, startEnds, ends)
@@ -99,11 +82,28 @@ eitherOr p a b = Sequence {
 
         mainTrans = mainTransA `diagConcat` mainTransB
 
+andThen :: Sequence s -> Sequence s -> Sequence s
+andThen seqA seqB = Sequence {
+    trans = trans'
+  , stateIxs = stateIxs'
+  }
+  where stateIxs' = stateIxs seqA <> stateIxs seqB
+
+        transA = trans seqA
+        transB = trans seqB
+        (mainA, endsA) = splitEnds transA
+        (_, nonstartB) = splitStart transB
+        transition = transB `distributeEnds` endsA
+        rightLen = max (M.width transition) (M.width transB)
+        lowerLeft = M.zeroMx (M.height nonstartB, M.width mainA)
+        trans' = M.blockMx [ [mainA, setWidth rightLen transition]
+                           , [lowerLeft, setWidth rightLen nonstartB] ]
+
 distributeEnds :: Trans -> Trans -> Trans
 distributeEnds trans = mapRows (distributeEndDist trans)
 
 distributeEndDist :: Trans -> Dist -> Dist
-distributeEndDist trans = (`M.row` 1) . transStepDist trans
+distributeEndDist trans = (`M.row` 1) . transStepDist1 trans
 
 nStates :: Trans -> Int
 nStates = pred . M.height
@@ -135,6 +135,47 @@ joinTransTokens (mainStart, mainTrans, endsStart, endsTrans) =
             , (prependRow endsStart endsTrans)
             ]
 
+addStartColumn :: Trans -> Trans
+addStartColumn trans = prependCol (M.zeroVec (M.height trans)) trans
+
+removeEndTransitions :: TransWithEndTransitions -> Trans
+--removeEndTransitions (m, r) = M.delCol 1 . fst $ splitRowsAt r m
+removeEndTransitions (m, r) = trimZeroCols . M.delCol 1 . fst $ splitRowsAt r m
+
+addEndTransitions :: Int -> Trans -> TransWithEndTransitions
+addEndTransitions minEnds m = (M.vconcat [addStartColumn $ m, endTransitions], r)
+  where (r, c) = M.dims m
+        (_, endTransitions) = splitRowsAt r $ forwardDiagonal (r + max (nEnds m) minEnds)
+
+-- second one should be constant
+transStep :: Trans -> Trans -> Trans
+transStep m1 m2 = removeEndTransitions (m1' `M.mul` m2', max r1 r2)
+  where maxEnds = max (nEnds m1) (nEnds m2)
+        (m1', r1) = addEndTransitions maxEnds m1
+        (m2', r2) = addEndTransitions maxEnds m2
+
+repeatSteps :: Trans -> [Trans]
+repeatSteps m = undefined
+
+transNSteps :: Trans -> Int -> Trans
+transNSteps m 0 = M.idMx (M.width m)
+transNSteps m n = (!! (n - 1)) . iterate (`transStep` m) $ m
+
+transStepDist :: Trans -> Dist -> Trans
+transStepDist m dist = sum $ (\(ix, p) -> (p *) <$> transNSteps m (ix - 1)) <$> M.vecToAssocList dist
+
+transStepDist1 :: Trans -> Dist -> Trans
+transStepDist1 m dist = sum $ (\(ix, p) -> (p *) <$> transNSteps m ix) <$> M.vecToAssocList dist
+
+test = deterministicSequence . V.fromList $ "apple"
+test2 = eitherOr 0.5 test test
+test2t = trans $ eitherOr 0.5 test test
+test2' = transStepDist (trans test2) (tov [1])
+
+tov ls = (M.vecFromAssocList (zip [1..] ls))
+
+  {-
+
 addEndTransitions :: Trans -> TransWithEndTransitions
 addEndTransitions m = (addStartColumn $ M.vconcat [m, endTransitions], r)
   where (r, c) = M.dims m
@@ -162,14 +203,4 @@ addNEndTransitions n m = (if extraN > 0
 removeEndTransitions :: TransWithEndTransitions -> Trans
 removeEndTransitions (m, r) = removeStartColumn . fst $ splitRowsAt r m
 
--- second one should be constant
-transStep :: Trans -> Trans -> Trans
-transStep m = (`M.mul` mWithExtra)
-  where (mWithExtra, _) = addEndTransitions m
-
-transNSteps :: Trans -> Int -> Trans
-transNSteps m 0 = M.idMx (M.width m)
-transNSteps m n = (!! (n - 1)) . iterate (`transStep` m) $ m
-
-transStepDist :: Trans -> M.SparseVector Prob -> Trans
-transStepDist m dist = sum $ (\(ix, p) -> (p *) <$> transNSteps m ix) <$> M.vecToAssocList dist
+-}

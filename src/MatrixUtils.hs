@@ -45,6 +45,12 @@ appendCol v m = M.addCol v (succ (M.width m)) m
 popCol :: (Eq a, Num a) => M.Index -> M.SparseMatrix a -> (M.SparseVector a, M.SparseMatrix a)
 popCol i m = (M.col m i, M.delCol i m)
 
+trimZeroCols :: (Eq a, Num a) => M.SparseMatrix a -> M.SparseMatrix a
+trimZeroCols m = let (lastCol, m') = popLastCol m
+                 in if M.isZeroVec lastCol
+                    then trimZeroCols m'
+                    else m
+
 popLastCol :: (Eq a, Num a) => M.SparseMatrix a -> (M.SparseVector a, M.SparseMatrix a)
 popLastCol m = (M.col m lastIx, M.delCol lastIx m)
   where lastIx = M.width m

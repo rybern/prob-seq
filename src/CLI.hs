@@ -19,10 +19,9 @@ data Options = Options {
 
 runCLI :: IO ()
 runCLI = execParser opts >>= runOptions
-  where opts = info (cliParser <**> helper)
+  where opts = info ((builderHelpOption <*> cliParser) <**> helper)
           (fullDesc
-           <> progDesc "[program description]"
-           <> header "[short description header]")
+           <> progDesc "Build transition matrices by combining probabilistic sequences")
 
 runOptions :: Options -> IO ()
 runOptions (Options {..}) = do
@@ -51,6 +50,11 @@ maybeOption nilval option settings = (\v -> if v == nilval then Nothing else Jus
 
 autoOption = option auto
 
+builderHelpOption =
+  infoOption builderHelpString
+  ( long "builder-help"
+    <> help "Print help for writing .stb (transition builder) files, including available constructors.")
+
 cliParser :: Parser Options
 cliParser = Options
             <$> strOption
@@ -59,12 +63,12 @@ cliParser = Options
               <> metavar "FILE"
               <> help "Input file describing a probabilistic sequence. Accepts sparse matrix format (.st or .stp extensions) or sequence builder file (.stb extension).")
             <*> maybeOption "" strOption
-            ( long "stOutput"
+            ( long "st-output"
               <> metavar "ST_FILE"
               <> value ""
               <> help "Output file describing a sparse transition distribution. This format may lose information, but should be interpretable to HMM programs.")
             <*> maybeOption "" strOption
-            ( long "stpOutput"
+            ( long "stp-output"
               <> metavar "STP_FILE"
               <> value ""
               <> help "Output file describing a sparse transition distribution. This format should keep all information, but may not be interpretable to HMM programs.")
