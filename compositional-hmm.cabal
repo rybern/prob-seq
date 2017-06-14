@@ -13,11 +13,32 @@ build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:  README.md
 
-executable compositional-hmm
+library
   hs-source-dirs:      src
-  main-is:             Main.hs
+  exposed-modules:     Sequence
+                     , SequenceCompositions
+                     , SparseTransFiles
+                     , Sampling
+                     , MatrixUtils
+                     , Types
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5
+                     , sparse-lin-alg
+                     , vector
+                     , MonadRandom
+                     , random
+                     , monad-loops
+                     , text
+                     , filepath
+
+executable compositional-hmm
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  other-modules:       CLI
+                     , ConstructionFiles
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+                     , compositional-hmm
                      , sparse-lin-alg
                      , vector
                      , MonadRandom
@@ -27,3 +48,19 @@ executable compositional-hmm
                      , text
                      , filepath
                      , optparse-applicative
+
+test-suite compositional-hmm-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+                     , compositional-hmm
+                     , sparse-lin-alg
+                     , vector
+                     , text
+                     , tasty-quickcheck
+                     , tasty-smallcheck
+                     , tasty-hspec
+                     , tasty-hunit
+                     , tasty

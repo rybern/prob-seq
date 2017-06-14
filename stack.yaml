@@ -4,10 +4,10 @@ packages:
 - '.'
 - location:
     git: https://github.com/rybern/construction-files.git
-    commit: 5999d5b5ba8e2f56e85193c5bd7570fa0c9f63ec
+    commit: HEAD
+  extra-dep: true
 
-extra-deps: [ sparse-lin-alg-0.4.3
-            , eigen-2.1.6]
+extra-deps: [ sparse-lin-alg-0.4.3 ]
 
 flags: {}
 
@@ -15,4 +15,4 @@ extra-package-dbs: []
 
 nix:
   enable: true
-  packages: [liblapack, blas, git, gcc, ncurses]
+  packages: [git, gcc, ncurses]
