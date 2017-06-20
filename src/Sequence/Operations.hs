@@ -1,15 +1,193 @@
-module SequenceCompositions where
+module Sequence.Operations where
 
-import Types
-import Sequence
-import MatrixUtils
+import Sequence.Types
+import Sequence.Utils
 import Data.Monoid ((<>))
+import Data.List (find)
 import Control.Applicative (liftA2)
 import qualified Data.Vector as V
 import qualified Math.LinearAlgebra.Sparse as M
 import Prelude hiding (product)
+
+{- should probably split a lot of this into utils, and rename utils to matrix.utils -}
+
+emptySequence :: Sequence s
+emptySequence = Sequence {
+    trans = M.fromRows (M.singVec (M.singVec 1))
+  , stateLabels = V.empty
+  }
+
+getTrans :: Sequence s -> Trans
+getTrans = addFixedEndRow . addStartColumn . collapseEnds . trans
+
+addFixedEndRow :: Trans -> Trans
+addFixedEndRow trans = appendRow (onehotVector (M.width trans) (M.width trans)) trans
+
+collapseEnds :: Trans -> Trans
+collapseEnds trans = M.hconcat [main, flatEnds]
+  where (main, ends) = splitEnds trans
+        flatEnds = setWidth 1 $ M.mapOnRows (M.singVec . sum) ends
+
+
+ds = deterministicSequence . V.fromList
+
+deterministicSequence :: V.Vector s -> Sequence s
+deterministicSequence states = Sequence {
+    trans = M.idMx (V.length states + 1)
+  , stateLabels = states
+  }
+
+eitherOr :: Prob -> Sequence s -> Sequence s -> Sequence s
+eitherOr p a b = Sequence {
+    trans = joinTransTokens (start, mainTrans, startEnds, ends)
+  , stateLabels = stateLabels'
+  }
+  where stateLabels' = stateLabels a <> stateLabels b
+
+        (startA, mainTransA, startEndsA, endTransA) = splitTransTokens $ trans a
+        (startB, mainTransB, startEndsB, endTransB) = splitTransTokens $ trans b
+
+        start = ((* p) <$> startA) <> ((* (1 - p)) <$> startB)
+
+        startEnds = ((* p) <$> startEndsA) + ((* (1 - p)) <$> startEndsB)
+
+        endLen = max (M.width endTransA) (M.width endTransB)
+        ends = M.vconcat [setWidth endLen endTransA, setWidth endLen endTransB]
+
+        mainTrans = mainTransA `diagConcat` mainTransB
+
+andThen :: Sequence s -> Sequence s -> Sequence s
+andThen seqA seqB = Sequence {
+    trans = trans'
+  , stateLabels = stateLabels'
+  }
+  where stateLabels' = stateLabels seqA <> stateLabels seqB
+
+        transA = trans seqA
+        transB = trans seqB
+        (mainA, endsA) = splitEnds transA
+        (_, nonstartB) = splitStart transB
+        transition = transB `distributeEnds` endsA
+        rightLen = max (M.width transition) (M.width transB)
+        lowerLeft = M.zeroMx (M.height nonstartB, M.width mainA)
+        trans' = M.blockMx [ [mainA, setWidth rightLen transition]
+                           , [lowerLeft, setWidth rightLen nonstartB] ]
+
+instance Monoid (Sequence s) where
+  mappend = andThen
+  mempty = emptySequence
+
+distributeEnds :: Trans -> Trans -> Trans
+distributeEnds trans = mapRows (distributeEndDist trans)
+
+distributeEndDist :: Trans -> Dist -> Dist
+distributeEndDist trans = (`M.row` 1) . transStepDist1 trans
+
+nStates :: Trans -> Int
+nStates = pred . M.height
+
+nEnds :: Trans -> Int
+nEnds m = (M.width m) - (nStates m)
+
+maxUsedEnd :: Trans -> Int
+maxUsedEnd m = maybe 1 snd
+               . find (M.isNotZeroVec . fst)
+               . map (\ix -> (M.col m ix, ix - nStates m))
+               $ [M.width m .. nStates m + 1]
+
+splitTransTokens :: Trans -> (Dist, Trans, Dist, Trans)
+splitTransTokens trans = (mainStart, mainTrans, endsStart, endsTrans)
+  where (main, ends) = splitColsAt (nStates trans) trans
+        (mainStart, mainTrans) = M.popRow 1 main
+        (endsStart, endsTrans) = M.popRow 1 ends
+
+splitEnds :: Trans -> (Trans, Trans)
+splitEnds trans = splitColsAt (nStates trans) trans
+
+splitStart :: Trans -> (Dist, Trans)
+splitStart = M.popRow 1
+
+joinTransTokens :: (Dist, Trans, Dist, Trans) -> Trans
+joinTransTokens (mainStart, mainTrans, endsStart, endsTrans) =
+  M.hconcat [ (prependRow mainStart mainTrans)
+            , (prependRow endsStart endsTrans)
+            ]
+
+addStartColumn :: Trans -> Trans
+addStartColumn trans = prependCol (M.zeroVec (M.height trans)) trans
+
+type TransWithEndTransitions = (Trans, Int)
+
+removeEndTransitions :: TransWithEndTransitions -> Trans
+--removeEndTransitions (m, r) = M.delCol 1 . fst $ splitRowsAt r m
+removeEndTransitions (m, r) = trimZeroCols . M.delCol 1 . fst $ splitRowsAt r m
+
+addEndTransitions :: Int -> Trans -> TransWithEndTransitions
+addEndTransitions minEnds m = (M.vconcat [addStartColumn $ m, endTransitions], r)
+  where (r, c) = M.dims m
+        (_, endTransitions) = splitRowsAt r $ forwardDiagonal (r + max (nEnds m) minEnds)
+
+-- second one should be constant
+transStep :: Trans -> Trans -> Trans
+transStep m1 m2 = removeEndTransitions (m1' `M.mul` m2', max r1 r2)
+  where maxEnds = max (nEnds m1) (nEnds m2)
+        (m1', r1) = addEndTransitions maxEnds m1
+        (m2', r2) = addEndTransitions maxEnds m2
+
+repeatSteps :: Trans -> [Trans]
+repeatSteps m = undefined
+
+transNSteps :: Trans -> Int -> Trans
+transNSteps m 0 = M.idMx (M.width m)
+transNSteps m n = (!! (n - 1)) . iterate (`transStep` m) $ m
+
+transStepDist :: Trans -> Dist -> Trans
+transStepDist m dist = sum $ (\(ix, p) -> (p *) <$> transNSteps m (ix - 1)) <$> M.vecToAssocList dist
+
+transStepDist1 :: Trans -> Dist -> Trans
+transStepDist1 m dist = sum $ (\(ix, p) -> (p *) <$> transNSteps m ix) <$> M.vecToAssocList dist
+
+test = deterministicSequence . V.fromList $ "apple"
+test2 = eitherOr 0.5 test test
+test2t = trans $ eitherOr 0.5 test test
+test2' = transStepDist (trans test2) (tov [1])
+
+tov ls = (M.vecFromAssocList (zip [1..] ls))
+
+  {-
+
+addEndTransitions :: Trans -> TransWithEndTransitions
+addEndTransitions m = (addStartColumn $ M.vconcat [m, endTransitions], r)
+  where (r, c) = M.dims m
+        (_, endTransitions) = splitRowsAt r $ forwardDiagonal c
+
+addStartColumn :: Trans -> Trans
+addStartColumn trans = prependCol (M.zeroVec (M.height trans)) trans
+
+removeStartColumn :: Trans -> Trans
+removeStartColumn = M.delCol 1
+
+addExtraEndTransitions :: Int -> TransWithEndTransitions -> TransWithEndTransitions
+addExtraEndTransitions n (m, r) = (diagConcat (forwardDiagonal n) m, r)
+
+addNEndTransitions :: Int -> Trans -> TransWithEndTransitions
+addNEndTransitions n m = (if extraN > 0
+                          then addExtraEndTransitions extraN
+                          else id)
+                         . addEndTransitions
+                         $ m
+  where (r, c) = M.dims m
+        normalEnds = c - r
+        extraN = n - normalEnds
+
+removeEndTransitions :: TransWithEndTransitions -> Trans
+removeEndTransitions (m, r) = removeStartColumn . fst $ splitRowsAt r m
+
+-}
+
+
 mapStates :: (a -> b) -> Sequence a -> Sequence b
-mapStates f seq = seq {stateIxs = V.map f (stateIxs seq)}
+mapStates f seq = seq {stateLabels = V.map f (stateLabels seq)}
 
 testcs = deterministicSequence (V.fromList "asdfb")
 testcs1 = eitherOr 0.3 testcs testcs
@@ -20,7 +198,7 @@ testc = collapse 2 testcs2
 collapse :: Int -> Sequence a -> Sequence (V.Vector a)
 collapse n seq = Sequence {
     trans = trans'
-  , stateIxs = stateIxs'
+  , stateLabels = stateLabels'
   }
   where (mainStart, mainTrans, endsStart, endsTrans) = splitTransTokens (trans seq)
 
@@ -29,7 +207,7 @@ collapse n seq = Sequence {
         tuples = tuplifyStateTransitions n states stateOuts
         tupleIxs = [1..V.length tuples]
 
-        stateIxs' = V.map (V.map (stateIxs seq V.!)) tuples
+        stateLabels' = V.map (V.map (stateLabels seq V.!)) tuples
 
         prob from to = mainTrans M.# (from + 1, to + 1)
         pathProb = fst
@@ -113,6 +291,23 @@ skipDist kernel seq = seq {
 
 -- seems to work as expected, just need to line everything up
 
+{-
+
+SEXY ALERT
+
+Here's how to implement the geometric distribution:
+
+take the distributeEnds matrix between m and (m `eitherOr (1-p)` emptySeq),
+and add it to m's transition matrix.
+
+By adding, you're basically identifying the states between the two copies, thereby transitioning itself.
+-}
+
+{-
+for andThen, feed distributeEnds seqA's [endsStart, endsTrans] and all of seqB's trans. it can then just fit in the upper right, the indices should work out.
+-}
+
+
 --geometricRepeat :: Prob -> Sequence s -> Sequence s
 geometricRepeat p s = ds
   where next = eitherOr p s emptySequence
@@ -154,7 +349,7 @@ reverseT m = normalize . flip M.ins ((1,1), 0)
 reverseSequence s = Sequence {
     trans = let m = getTrans s
             in snd . popCol 1 . snd . M.popRow (M.height m) $ reverseT m
-  , stateIxs = V.reverse (stateIxs s)
+  , stateLabels = V.reverse (stateLabels s)
   }
 
 
@@ -169,12 +364,12 @@ test' = product testA testB
 -- asymetrical, throw away second's ends
 -- new ixs are b-major
 -- product :: Sequence a -> Sequence b -> Sequence (a, b)
-product seqA seqB = (stateIxs', mainStart, mainTrans, endsTrans, trans')
+product seqA seqB = (stateLabels', mainStart, mainTrans, endsTrans, trans')
   -- Sequence {
     -- trans = trans'
-  -- , stateIxs = stateIxs'
+  -- , stateLabels = stateLabels'
   -- }
-  where stateIxs' = liftA2 (flip (,)) (stateIxs seqB) (stateIxs seqA)
+  where stateLabels' = liftA2 (flip (,)) (stateLabels seqB) (stateLabels seqA)
 
         transA = trans seqA
         statesA = nStates transB

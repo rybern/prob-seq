@@ -1,13 +1,14 @@
-module SparseTransFiles where
+module Sequence.IO.TransMatrix where
 
 import qualified Math.LinearAlgebra.Sparse as M
 import qualified Data.Vector as V
 import Data.List
-import Sequence
-import Types
-import MatrixUtils
 import System.IO
 import System.FilePath.Posix
+
+import Sequence.Operations
+import Sequence.Types
+import Sequence.Utils
 
 -- .st files should be r = c+1 with r0 startdist
 -- .st files should be internal representation
@@ -30,11 +31,11 @@ writeSeqToFile t extension fp seq = withFile (fp ++ "." ++ extension) WriteMode 
   {-
   -- write header
   hPutStr h "# "
-  mapM_ (hPutStr h) (intersperse " " . map show . V.toList $ stateIxs seq)
+  mapM_ (hPutStr h) (intersperse " " . map show . V.toList $ stateLabels seq)
   hPutStrLn h ""
   -}
   hPutStr h "# "
-  hPutStr h (V.toList $ stateIxs seq)
+  hPutStr h (V.toList $ stateLabels seq)
   hPutStrLn h ""
 
   -- write matrix lines

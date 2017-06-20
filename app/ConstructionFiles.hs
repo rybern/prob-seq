@@ -1,16 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 module ConstructionFiles where
 
-import BuildConstructor
-import SparseTransFiles
-import SequenceCompositions
 import Data.Text hiding (concat, map, zip)
 import Data.Text as Text (unlines)
 import qualified Math.LinearAlgebra.Sparse as M
 import qualified Data.Vector as V
 import System.FilePath.Posix
 import System.Exit
+
+import BuildConstructor
+
 import Sequence
+import Sequence.IO.TransMatrix
 
 readSeqFile :: FilePath ->
                IO (Sequence Char)

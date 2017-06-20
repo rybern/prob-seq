@@ -2,8 +2,8 @@
 module CLI where
 
 import ConstructionFiles
-import SparseTransFiles
-import Sampling
+import Sequence.IO.TransMatrix
+import Sequence.Sampling
 
 import Control.Monad
 import System.Exit
@@ -42,7 +42,7 @@ runOptions (Options {..}) = do
 
   case sampling of
     Nothing -> return ()
-    Just n -> replicateM_ n $ sample seq >>= print
+    Just n -> replicateM_ n $ sampleSeq seq >>= print
 
   return ()
 

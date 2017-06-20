@@ -1,25 +1,24 @@
-module Sampling where
+module Sequence.Sampling where
 
 import qualified Math.LinearAlgebra.Sparse as M
-import Types
 import Sequence
 import qualified Data.Vector as V
 import Control.Monad.Random
 import System.Random
 import Control.Monad.Loops
 
-sample :: Sequence s -> IO (V.Vector s)
-sample = randToIO . sample'
+sampleSeq :: Sequence s -> IO (V.Vector s)
+sampleSeq = randToIO . sampleSeq'
 
 type Rand' = Rand StdGen
 randToIO :: Rand' a -> IO a
 randToIO r = evalRand r <$> newStdGen
 
-sample' :: Sequence s -> Rand' (V.Vector s)
-sample' seq = do
+sampleSeq' :: Sequence s -> Rand' (V.Vector s)
+sampleSeq' seq = do
   ixs <- sampleTrans (getTrans seq)
   let nontokenIxs = V.filter (\ix -> ix /= 1 && ix /= V.last ixs) ixs
-  return $ V.map ((stateIxs seq V.!) . (\x -> x - 2)) nontokenIxs
+  return $ V.map ((stateLabels seq V.!) . (\x -> x - 2)) nontokenIxs
 
 sampleTrans :: Trans -> Rand' (V.Vector Int)
 sampleTrans m = V.fromList . reverse <$> iterateUntilM
@@ -34,4 +33,3 @@ stepSequence m ix = vecToRandDist $ M.row m ix
 
 vecToRandDist :: M.SparseVector Prob -> Rand' Int
 vecToRandDist = fromList . map (\(ix, p) -> (ix, toRational p)) . M.vecToAssocList
-

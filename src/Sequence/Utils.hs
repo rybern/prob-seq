@@ -1,4 +1,4 @@
-module MatrixUtils where
+module Sequence.Utils where
 
 import qualified Math.LinearAlgebra.Sparse as M
 

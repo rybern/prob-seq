@@ -5,10 +5,12 @@ import Test.Tasty.HUnit
 import Data.List
 import Data.Ord
 
+import TestOperations
+
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "Tests" [properties, unitTests]
+tests = testGroup "Tests" [operationTests]
 
 properties = testGroup "Properties"
   [ testProperty "sort == sort . reverse" $
