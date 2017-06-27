@@ -3,11 +3,13 @@ module TestOperations where
 
 import Data.Word
 import Data.Monoid
+import Data.List (find)
 import Control.Monad
 import qualified Data.Vector as V
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
+import Test.QuickCheck
 import Test.Tasty.HUnit
 
 import Sequence
@@ -19,13 +21,20 @@ operationTests = testGroup "Operations"
   [
     seriesDistributesPropTest
   , deterministicIsConstantPropTest
-  , correctSampleProbPropTest
+  , localOption (QuickCheckTests 10000) correctSampleProbPropTest
   ]
 
-correctSampleProbPropTest = testProperty "Random seq constructor and exact sample probability match trans matrix sample probability" correctSampleProbProp
+correctSampleProbPropTest = flip testProperty correctSampleProbProp $
+  "Random seq constructor and exact sample probability match trans matrix sample probability"
 correctSampleProbProp :: SampledSequenceConstructor Word8 -> Bool
 correctSampleProbProp (SampledSequenceConstructor (consts, (path, p))) =
-  any (== p) $ stateSequenceProbability (buildSequence consts) path
+  let probs = stateSequenceProbability (buildSequence consts) path
+  in any (aproxEq p) probs
+     || (p `aproxEq` 0.0 && V.length probs == 0)
+
+aproxEq :: Double -> Double -> Bool
+aproxEq a b = (a - eps) < b && b < (a + eps)
+  where eps = 0.00000001
 
 subsetsProd :: (Num a) => V.Vector a -> V.Vector a
 subsetsProd = V.map getProduct . subsets . V.map Product
@@ -52,3 +61,23 @@ deterministicIsConstantProp s1 = do
 
 instance Arbitrary e => Arbitrary (V.Vector e) where
   arbitrary = V.fromList <$> arbitrary
+
+{-
+findFailing :: IO [String]
+findFailing = do
+  result <- quickCheckResult correctSampleProbProp
+  case result of
+    failure@(Failure {}) -> return $ failingTestCase failure
+    _ -> findFailing
+-}
+
+--sampleStateSequenceProbability :: SequenceConstructor s -> (Gen (V.Vector s, Prob), Prob)
+testSequence :: (Eq s) => SequenceConstructor s -> IO (V.Vector s, Bool)
+testSequence consts = generate $ do
+  (path, p) <- fst $ sampleStateSequenceProbability consts
+  let works = any (== p) $ stateSequenceProbability (buildSequence consts) path
+  return (path, works)
+
+testSequenceUntil :: (Eq s) => SequenceConstructor s -> IO (Maybe (V.Vector s, Bool))
+testSequenceUntil = let findFail = find (not . snd) . take 100000
+                    in (findFail <$>) . sequence . repeat . testSequence

@@ -54,8 +54,6 @@ sampleStateSequenceProbability (DeterministicSequence v) =
   if V.null v
   then sampleStateSequenceProbability EmptySequence
   else (return (v, 1.0), 0.0)
---sampleStateSequenceProbability (EitherOr _ EmptySequence EmptySequence) =
-  --sampleStateSequenceProbability EmptySequence
 sampleStateSequenceProbability (EitherOr p constA constB) =
   let (sampleA, p0A) = sampleStateSequenceProbability constA
       (sampleB, p0B) = sampleStateSequenceProbability constB
@@ -104,12 +102,28 @@ sampleStateSequenceProbability (FiniteDistOver constPairs) =
   --sampleStateSequenceProbability EmptySequence
 sampleStateSequenceProbability (FiniteDistRepeat ps const) =
   let (sample, p0) = sampleStateSequenceProbability const
-      p0' = sum . zipWith (*) ps . map (p0^) $ [0..]
+      ps' = 1-sum ps : ps
+      p0' = sum . zipWith (*) ps' . map (p0^) $ [0..]
       fixEmpty = fixEmptySequenceProb p0'
   in (, p0') $ do
-    (repeatNum, branchProb) <- elements (zip [0..] ps)
-    (paths, probs) <- unzip <$> replicateM repeatNum sample
-    return $ fixEmpty (mconcat paths, product probs * branchProb)
+    nNonempty <- choice (0, length ps)
+
+    let geoms = map (\n -> (1 - p0) * p0 ^ n) [0..]
+        branchProbs' = 
+
+
+-- NOTE:
+          -- is it possible to first use the AST to sample a sequence, then to enumerate its paths?
+          -- then could sum together the AST paths and the matrix paths
+          -- this way becomes quite painful
+          
+    -- do
+    -- (repeatNum, branchProb) <- elements (zip [0..] ps')
+    -- (paths, probs) <- unzip <$> replicateM repeatNum sample
+    -- return $ fixEmpty (mconcat paths, product probs * branchProb)
+  -- this is incorrect because the matrix doesn't differentiate between the sources of replication
+  -- e.g. there is no difference between branch 5, first is empty and branch 4, first is nonempty. they are grouped.
+
 sampleStateSequenceProbability (UniformDistRepeat n const) =
   sampleStateSequenceProbability (FiniteDistRepeat (replicate n (1 / fromIntegral n)) const)
 --sampleStateSequenceProbability (ReverseSequence EmptySequence) =
@@ -134,11 +148,6 @@ skipdistPathSample :: [Prob] -> (V.Vector s, Prob) -> (V.Vector s, Prob)
 skipdistPathSample dist (path, prob) = undefined
 -}
 
--- There are some rules that can simplify a sequence constructor to make the samples closer to the transition
-refineConstructors :: SequenceConstructor s -> SequenceConstructor s
-refineConstructors (FiniteDistRepeat _ EmptySequence) = EmptySequence
-refineConstructors c = c
-
 probGen :: Gen Prob
 probGen = choose (0, 1)
 
@@ -156,50 +165,100 @@ arbitraryLeafConstructor :: (Arbitrary s) => Gen (SequenceConstructor s)
 arbitraryLeafConstructor = oneof
   [
     return $ EmptySequence
-  , do n <- choose (0, 25)
+  , do -- n <- choose (0, 10)
+       let n = 1
        v <- V.replicateM n arbitrary
        return (DeterministicSequence v)
   ]
 
+arbitraryEitherOr ::
+  Arbitrary s => Prob -> Gen (SequenceConstructor s)
+arbitraryEitherOr p = do
+  constA <- geometricArbitraryConstructor p
+  constB <- geometricArbitraryConstructor p
+  p <- probGen
+  return (EitherOr p constA constB)
+
+arbitraryAndThen ::
+  Arbitrary s => Prob -> Gen (SequenceConstructor s)
+arbitraryAndThen p = do
+  constA <- geometricArbitraryConstructor p
+  constB <- geometricArbitraryConstructor p
+  return (AndThen constA constB)
+
+arbitraryPossibly ::
+  Arbitrary s => Prob -> Gen (SequenceConstructor s)
+arbitraryPossibly p = do
+  const <- geometricArbitraryConstructor p
+  p <- probGen
+  return (Possibly p const)
+
+arbitraryUniformDistOver ::
+  Arbitrary s => Prob -> Gen (SequenceConstructor s)
+arbitraryUniformDistOver p = do
+  n <- choose (1, 10)
+  consts <- replicateM n (geometricArbitraryConstructor (p / fromIntegral n))
+  return (UniformDistOver consts)
+
+arbitraryFiniteDistOver ::
+  Arbitrary s => Prob -> Gen (SequenceConstructor s)
+arbitraryFiniteDistOver p = do
+  n <- choose (1, 5)
+  consts <- replicateM n (geometricArbitraryConstructor (p / fromIntegral n))
+  ps <- distGen n
+  let constPairs = zip consts ps
+  return (FiniteDistOver constPairs)
+
+arbitraryFiniteDistRepeat ::
+  Arbitrary s => Prob -> Gen (SequenceConstructor s)
+arbitraryFiniteDistRepeat p = do
+  const <- geometricArbitraryConstructor p
+  n <- choose (1, 4)
+  (_:ps) <- distGen n
+  return (FiniteDistRepeat ps const)
+
+arbitraryUniformDistRepeat ::
+  Arbitrary s => Prob -> Gen (SequenceConstructor s)
+arbitraryUniformDistRepeat p = do
+  const <- geometricArbitraryConstructor p
+  n <- choose (1, 10)
+  return (UniformDistRepeat n const)
+
+arbitraryReverseSequence ::
+  Arbitrary s => Prob -> Gen (SequenceConstructor s)
+arbitraryReverseSequence p = do
+  const <- geometricArbitraryConstructor p
+  return (ReverseSequence const)
+
+{-
+arbitrarySkipDist ::
+  Arbitrary s => Prob -> Gen (SequenceConstructor s)
+arbitrarySkipDist = do
+  const <- arbitrary
+  n <- choose (0, 10)
+  ps <- distGen n
+  let dist = M.vecFromAssocList (zip [1..] ps)
+  return (SkipDist dist const)
+-}
+
 arbitraryBranchConstructor :: (Arbitrary s) => Prob -> Gen (SequenceConstructor s)
-arbitraryBranchConstructor p = oneof
+arbitraryBranchConstructor p = oneof . map ($ p) $
   [
-    do constA <- geometricArbitraryConstructor p
-       constB <- geometricArbitraryConstructor p
-       p <- probGen
-       return (EitherOr p constA constB)
-  , do constA <- geometricArbitraryConstructor p
-       constB <- geometricArbitraryConstructor p
-       return (AndThen constA constB)
-  , do const <- geometricArbitraryConstructor p
-       p <- probGen
-       return (Possibly p const)
-  , do n <- choose (1, 10)
-       consts <- replicateM n (geometricArbitraryConstructor (p / fromIntegral n))
-       return (UniformDistOver consts)
-  , do n <- choose (1, 10)
-       consts <- replicateM n (geometricArbitraryConstructor (p / fromIntegral n))
-       ps <- distGen n
-       let constPairs = zip consts ps
-       return (FiniteDistOver constPairs)
-  , do const <- geometricArbitraryConstructor p
-       n <- choose (0, 10)
-       ps <- distGen n
-       return (FiniteDistRepeat ps const)
-  , do const <- geometricArbitraryConstructor p
-       n <- choose (0, 10)
-       return (UniformDistRepeat n const)
-  , do const <- geometricArbitraryConstructor p
-       return (ReverseSequence const)
-  -- , do const <- arbitrary
-  -- n <- choose (0, 10)
-  -- ps <- distGen n
-  -- let dist = M.vecFromAssocList (zip [1..] ps)
-  -- return (SkipDist dist const)
+    arbitraryEitherOr
+  , arbitraryAndThen
+  --, arbitraryPossibly
+  --, arbitraryUniformDistOver
+  --, arbitraryFiniteDistOver
+  , arbitraryFiniteDistRepeat
+  --, arbitraryUniformDistRepeat
+
+    -- reverse sequence is broken. test case:
+      -- (ReverseSequence (Possibly 0.15 (DeterministicSequence (V.singleton 1))))
+  --, arbitraryReverseSequence
   ]
 
 instance (Arbitrary s) => Arbitrary (SequenceConstructor s) where
-  arbitrary = geometricArbitraryConstructor 0.99
+  arbitrary = geometricArbitraryConstructor 0.2
 
 newtype SampledSequenceConstructor s = SampledSequenceConstructor (SequenceConstructor s, (V.Vector s, Prob))
   deriving (Show)

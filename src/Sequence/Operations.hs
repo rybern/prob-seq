@@ -271,7 +271,7 @@ tuplifyStateTransitions toCollapse states stateOuts = V.map V.fromList $ V.conca
         groups n s = V.concatMap (V.map (s:) . groups (n - 1)) (stateOuts s)
 
 possibly :: Prob -> Sequence s -> Sequence s
-possibly p = eitherOr p emptySequence
+possibly p = eitherOr (1-p) emptySequence
 
 uniformDistOver :: [Sequence s] -> Sequence s
 uniformDistOver seqs = finiteDistOver $ zip seqs (repeat uniformDensity)
@@ -308,14 +308,16 @@ for andThen, feed distributeEnds seqA's [endsStart, endsTrans] and all of seqB's
 -}
 
 
+-- geometricRepeat ps has probability 1-sum ps of emptySequence
 --geometricRepeat :: Prob -> Sequence s -> Sequence s
 geometricRepeat p s = ds
   where next = eitherOr p s emptySequence
         ds =  trans next `distributeEnds` (snd . splitEnds . trans $ s)
 
 finiteDistRepeat :: [Prob] -> Sequence s -> Sequence s
-finiteDistRepeat dist seq = next (dropoutDist dist)
-  where next [] = emptySequence
+finiteDistRepeat dist seq = next (dropoutDist dist')
+  where dist' = 1-sum dist : dist
+        next [_] = emptySequence
         next (p:ps) = eitherOr p emptySequence $ seq `andThen` next ps
 
 uniformDistRepeat :: Int -> Sequence s -> Sequence s
@@ -336,9 +338,13 @@ priors m = flip M.vecIns (1, 1.0)
             $ m
   where nTimes = 100
 
-reverseT m = normalize . flip M.ins ((1,1), 0)
+reverseT ::
+  (Eq a, Fractional a) => M.SparseMatrix a -> M.SparseMatrix a
+reverseT m = normalize
+             . flip M.ins ((1,1), 0)
              . flip M.ins ((M.height m, M.width m), 1.0)
-             . mapWithIxs bayes $ M.trans flipped
+             . mapWithIxs bayes
+             $ M.trans flipped
   where ps' = priors m
         ps = reverseVec ps'
 
@@ -346,6 +352,7 @@ reverseT m = normalize . flip M.ins ((1,1), 0)
         --flipped = reverseRows . reverseCols . snd . M.popRow (M.height m) $ m
         bayes (r, c) val = (ps M.! r) * val / (ps M.! c)
 
+reverseSequence :: Sequence s -> Sequence s
 reverseSequence s = Sequence {
     trans = let m = getTrans s
             in snd . popCol 1 . snd . M.popRow (M.height m) $ reverseT m
