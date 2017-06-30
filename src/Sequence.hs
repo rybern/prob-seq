@@ -1,8 +1,12 @@
 module Sequence
   (
-    module Sequence.Types
-  , module Sequence.Operations
+    module Sequence.AST
+  , module Sequence.Matrix.IO.TransMatrix
+  , module Sequence.Types
+  , getTrans
   ) where
 
+import Sequence.AST
 import Sequence.Types
-import Sequence.Operations
+import Sequence.Matrix.Operations
+import Sequence.Matrix.IO.TransMatrix

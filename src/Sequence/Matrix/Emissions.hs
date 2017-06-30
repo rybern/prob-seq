@@ -1,24 +1,25 @@
 {-# LANGUAGE OverloadedLists #-}
-module Sequence.Emission
+module Sequence.Matrix.Emissions
   (
     stateSequenceProbability
   ) where
 
-import Sequence
+import Sequence.Matrix.Types
+import Sequence.Matrix.Operations (getTrans)
 import Control.Monad
 import qualified Data.Vector as V
 import qualified Math.LinearAlgebra.Sparse as M
 
-stateSequenceProbability :: (Eq s) => Sequence s -> V.Vector s -> V.Vector Prob
-stateSequenceProbability seq = pathProbs (getTrans seq) . stateSequenceIxs seq
+stateSequenceProbability :: (Eq s) => V.Vector s -> MatSeq s -> Prob
+stateSequenceProbability path seq = sum . pathProbs (getTrans seq) . stateSequenceIxs seq $ path
 
-stateSequenceIxs :: (Eq s) => Sequence s -> V.Vector s -> [V.Vector M.Index]
+stateSequenceIxs :: (Eq s) => MatSeq s -> V.Vector s -> [V.Vector M.Index]
 stateSequenceIxs seq = V.toList . addEnd . V.map (stateIxs seq)
   where endIx = V.length (stateLabels seq) + 2
         addEnd = (`V.snoc` [endIx])
 
-stateIxs :: (Eq s) => Sequence s -> s -> V.Vector M.Index
-stateIxs (Sequence {stateLabels = stateLabels}) label =
+stateIxs :: (Eq s) => MatSeq s -> s -> V.Vector M.Index
+stateIxs (MatSeq {stateLabels = stateLabels}) label =
   flip V.imapMaybe stateLabels $ \ix label' ->
                                    if label' == label
                                    then Just (ix + 2)

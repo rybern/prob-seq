@@ -1,4 +1,4 @@
-module Sequence.IO.TransMatrix where
+module Sequence.Matrix.IO.TransMatrix where
 
 import qualified Math.LinearAlgebra.Sparse as M
 import qualified Data.Vector as V
@@ -6,26 +6,26 @@ import Data.List
 import System.IO
 import System.FilePath.Posix
 
-import Sequence.Operations
-import Sequence.Types
-import Sequence.Utils
+import Sequence.Matrix.Operations
+import Sequence.Matrix.Types
+import Sequence.Matrix.Utils
 
 -- .st files should be r = c+1 with r0 startdist
 -- .st files should be internal representation
 
 -- getTrans isn't exactly right
 
-writeSTFile :: FilePath -> Sequence Char -> IO ()
+writeSTFile :: FilePath -> MatSeq Char -> IO ()
 writeSTFile = writeSeqToFile (addFixedEndRow . collapseEnds . trans) "st"
 
-writeSTPFile :: FilePath -> Sequence Char -> IO ()
+writeSTPFile :: FilePath -> MatSeq Char -> IO ()
 writeSTPFile = writeSeqToFile trans "stp"
 
 writeSeqToFile :: -- (Show a)
-                (Sequence Char -> M.SparseMatrix Prob)
+                (MatSeq Char -> M.SparseMatrix Prob)
                -> String
                -> FilePath
-               -> Sequence Char
+               -> MatSeq Char
                -> IO ()
 writeSeqToFile t extension fp seq = withFile (fp ++ "." ++ extension) WriteMode $ \h -> do
   {-
@@ -42,23 +42,26 @@ writeSeqToFile t extension fp seq = withFile (fp ++ "." ++ extension) WriteMode 
   mapM_ (hPutStrLn h) . map showElem . tail . M.toAssocList $ matrix
   where matrix = t seq
         showElem ((r, c), val) = show (pred r) ++ " " ++ show (pred c) ++ " " ++ show val
+        fp' = if takeExtension fp == extension
+              then fp
+              else fp `addExtension` extension
 
 
 readSTFile :: -- (Read a)
             FilePath
-           -> IO (Sequence Char)
-readSTFile = readSeqFromFile (\t s -> Sequence (snd . M.popRow (M.height t) $ t) s)
+           -> IO (MatSeq Char)
+readSTFile = readSeqFromFile (\t s -> MatSeq (snd . M.popRow (M.height t) $ t) s)
 
 readSTPFile :: -- (Read a)
            FilePath
-           -> IO (Sequence Char)
-readSTPFile = readSeqFromFile Sequence
+           -> IO (MatSeq Char)
+readSTPFile = readSeqFromFile MatSeq
 
 -- should probably use attoparsec..
 readSeqFromFile :: -- (Read a)
-                (M.SparseMatrix Prob -> V.Vector Char -> Sequence Char)
+                (M.SparseMatrix Prob -> V.Vector Char -> MatSeq Char)
                 -> FilePath
-                -> IO (Sequence Char)
+                -> IO (MatSeq Char)
 readSeqFromFile seqFn fp = do
   ((_:header:_):matLines) <- map words . lines <$> readFile fp
 

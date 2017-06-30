@@ -21,3 +21,26 @@ BIO fork:
 	Layers for reading errors of particular sequencers,
 		mutation types/rates for particular environments
 
+
+
+
+inductive testing:
+
+inductiveSample :: ([(a, Prob)] -> m (a, Prob)) -> ProbSeq (Vector s) s -> m (Vector s, Prob)
+
+data SeqTree s t = AndThen t t
+                 | EitherOr Prob t t
+                 | Det s
+                 deriving Functor
+
+data SampledSeqTree s t = SampledSeqTree {
+       samples :: [(s, Prob)]
+     , matSeq :: MatSeq s
+     , constructor :: SeqTree s t
+}
+
+data ProbSeq s = Fix (SeqTree s)
+data SampledProbSeq s = Fix (SampledSeqTree s)
+
+unsample :: SampledProbSeq s -> ProbSeq s
+unsample = fmap constructor

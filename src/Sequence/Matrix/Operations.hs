@@ -1,44 +1,78 @@
-module Sequence.Operations where
+{-# LANGUAGE RecordWildCards #-}
+module Sequence.Matrix.Operations
+  (
+    emptySequence
+  , deterministicSequence
+  , eitherOr
+  , andThen
+  , collapse
+  , finiteDistOver
+  , finiteDistRepeat
+  , getTrans
+  , reverseSequence
+  , skipDist
+  , geometricRepeat
+  , filterUnreachableStates
+  ) where
 
-import Sequence.Types
-import Sequence.Utils
+import Sequence.Matrix.Types
+import Sequence.Matrix.Utils
 import Data.Monoid ((<>))
 import Data.List (find)
+import Data.Maybe (fromJust, fromMaybe)
 import Control.Applicative (liftA2)
 import qualified Data.Vector as V
 import qualified Math.LinearAlgebra.Sparse as M
-import Prelude hiding (product)
+
+import Data.Set (Set)
+import qualified Data.Set as Set
+import Data.Map (Map)
+import qualified Data.Map as Map
+
+{-
+could reduce the graph by looking for identical state sequences to be collapsed
+identical sequences reduces to subgraph isomorphism problem, which is NP hard
+
+for now, collapse identical states by identical rows, summing cols
+
+when are there ever identical states?
+-}
+
+{-
+(delete, insert, mutate, slips, etc) -> intersperse -> insertAfterState :: MatSeq -> MatSeq -> Int -> MatSeq
+-}
 
 {- should probably split a lot of this into utils, and rename utils to matrix.utils -}
 
-emptySequence :: Sequence s
-emptySequence = Sequence {
+emptySequence :: MatSeq s
+emptySequence = MatSeq {
     trans = M.fromRows (M.singVec (M.singVec 1))
   , stateLabels = V.empty
   }
 
-getTrans :: Sequence s -> Trans
+skip :: Int -> MatSeq s
+skip n = MatSeq {
+    trans = M.fromRows (M.singVec (onehotVector (succ n) (succ n)))
+  , stateLabels = V.empty
+  }
+
+getTrans :: MatSeq s -> Trans
 getTrans = addFixedEndRow . addStartColumn . collapseEnds . trans
-
-addFixedEndRow :: Trans -> Trans
-addFixedEndRow trans = appendRow (onehotVector (M.width trans) (M.width trans)) trans
-
-collapseEnds :: Trans -> Trans
-collapseEnds trans = M.hconcat [main, flatEnds]
-  where (main, ends) = splitEnds trans
-        flatEnds = setWidth 1 $ M.mapOnRows (M.singVec . sum) ends
 
 
 ds = deterministicSequence . V.fromList
 
-deterministicSequence :: V.Vector s -> Sequence s
-deterministicSequence states = Sequence {
+deterministicSequence :: V.Vector s -> MatSeq s
+deterministicSequence states = MatSeq {
     trans = M.idMx (V.length states + 1)
   , stateLabels = states
   }
 
-eitherOr :: Prob -> Sequence s -> Sequence s -> Sequence s
-eitherOr p a b = Sequence {
+afterState :: MatSeq s -> MatSeq s -> Int -> MatSeq s
+afterState seqA delim ix = undefined
+
+eitherOr :: Prob -> MatSeq s -> MatSeq s -> MatSeq s
+eitherOr p a b = MatSeq {
     trans = joinTransTokens (start, mainTrans, startEnds, ends)
   , stateLabels = stateLabels'
   }
@@ -56,8 +90,8 @@ eitherOr p a b = Sequence {
 
         mainTrans = mainTransA `diagConcat` mainTransB
 
-andThen :: Sequence s -> Sequence s -> Sequence s
-andThen seqA seqB = Sequence {
+andThen :: MatSeq s -> MatSeq s -> MatSeq s
+andThen seqA seqB = MatSeq {
     trans = trans'
   , stateLabels = stateLabels'
   }
@@ -73,18 +107,15 @@ andThen seqA seqB = Sequence {
         trans' = M.blockMx [ [mainA, setWidth rightLen transition]
                            , [lowerLeft, setWidth rightLen nonstartB] ]
 
-instance Monoid (Sequence s) where
+instance Monoid (MatSeq s) where
   mappend = andThen
   mempty = emptySequence
 
 distributeEnds :: Trans -> Trans -> Trans
-distributeEnds trans = mapRows (distributeEndDist trans)
+distributeEnds trans = trimZeroCols . mapRows (distributeEndDist trans)
 
 distributeEndDist :: Trans -> Dist -> Dist
 distributeEndDist trans = (`M.row` 1) . transStepDist1 trans
-
-nStates :: Trans -> Int
-nStates = pred . M.height
 
 nEnds :: Trans -> Int
 nEnds m = (M.width m) - (nStates m)
@@ -100,9 +131,6 @@ splitTransTokens trans = (mainStart, mainTrans, endsStart, endsTrans)
   where (main, ends) = splitColsAt (nStates trans) trans
         (mainStart, mainTrans) = M.popRow 1 main
         (endsStart, endsTrans) = M.popRow 1 ends
-
-splitEnds :: Trans -> (Trans, Trans)
-splitEnds trans = splitColsAt (nStates trans) trans
 
 splitStart :: Trans -> (Dist, Trans)
 splitStart = M.popRow 1
@@ -186,7 +214,7 @@ removeEndTransitions (m, r) = removeStartColumn . fst $ splitRowsAt r m
 -}
 
 
-mapStates :: (a -> b) -> Sequence a -> Sequence b
+mapStates :: (a -> b) -> MatSeq a -> MatSeq b
 mapStates f seq = seq {stateLabels = V.map f (stateLabels seq)}
 
 testcs = deterministicSequence (V.fromList "asdfb")
@@ -195,8 +223,8 @@ testcs2 = andThen testcs testcs1
 testc = collapse 2 testcs2
 
 --collapse n seq = (tuples, startTrans', mainTrans', endsStart, endsTrans''', tail $ M.vecToAssocList (M.rows endsTrans), trans')
-collapse :: Int -> Sequence a -> Sequence (V.Vector a)
-collapse n seq = Sequence {
+collapse :: Int -> MatSeq a -> MatSeq (V.Vector a)
+collapse n seq = MatSeq {
     trans = trans'
   , stateLabels = stateLabels'
   }
@@ -270,24 +298,30 @@ tuplifyStateTransitions toCollapse states stateOuts = V.map V.fromList $ V.conca
         groups 1 s = V.singleton [s]
         groups n s = V.concatMap (V.map (s:) . groups (n - 1)) (stateOuts s)
 
-possibly :: Prob -> Sequence s -> Sequence s
+possibly :: Prob -> MatSeq s -> MatSeq s
 possibly p = eitherOr (1-p) emptySequence
 
-uniformDistOver :: [Sequence s] -> Sequence s
+uniformDistOver :: [MatSeq s] -> MatSeq s
 uniformDistOver seqs = finiteDistOver $ zip seqs (repeat uniformDensity)
   where uniformDensity = 1 / fromIntegral (length seqs)
 
-finiteDistOver :: [(Sequence s, Prob)] -> Sequence s
+finiteDistOver :: [(MatSeq s, Prob)] -> MatSeq s
 finiteDistOver [(seq, _)] = seq
 finiteDistOver ((seq, p) : rest) = eitherOr p seq $
   finiteDistOver (map (\(s', p') -> (s', p' / (1 - p))) rest)
 
+skipDist :: [Prob]
+         -> MatSeq s
+skipDist probs = finiteDistOver $ zipWith (\n prob -> (skip n, prob)) [0..] probs
+
+{-
 skipDist :: Dist
-         -> Sequence s
-         -> Sequence s
+         -> MatSeq s
+         -> MatSeq s
 skipDist kernel seq = seq {
   trans = normalize $ transStepDist (trans seq) kernel
   }
+-}
 
 -- seems to work as expected, just need to line everything up
 
@@ -307,20 +341,19 @@ By adding, you're basically identifying the states between the two copies, there
 for andThen, feed distributeEnds seqA's [endsStart, endsTrans] and all of seqB's trans. it can then just fit in the upper right, the indices should work out.
 -}
 
-
 -- geometricRepeat ps has probability 1-sum ps of emptySequence
---geometricRepeat :: Prob -> Sequence s -> Sequence s
-geometricRepeat p s = ds
+geometricRepeat :: Prob -> MatSeq s -> MatSeq s
+geometricRepeat p s = undefined
   where next = eitherOr p s emptySequence
         ds =  trans next `distributeEnds` (snd . splitEnds . trans $ s)
 
-finiteDistRepeat :: [Prob] -> Sequence s -> Sequence s
+finiteDistRepeat :: [Prob] -> MatSeq s -> MatSeq s
 finiteDistRepeat dist seq = next (dropoutDist dist')
   where dist' = 1-sum dist : dist
         next [_] = emptySequence
         next (p:ps) = eitherOr p emptySequence $ seq `andThen` next ps
 
-uniformDistRepeat :: Int -> Sequence s -> Sequence s
+uniformDistRepeat :: Int -> MatSeq s -> MatSeq s
 uniformDistRepeat n = finiteDistRepeat (replicate n (1 / fromIntegral n))
 
 dropoutDist :: [Prob] -> [Prob]
@@ -352,13 +385,51 @@ reverseT m = normalize
         --flipped = reverseRows . reverseCols . snd . M.popRow (M.height m) $ m
         bayes (r, c) val = (ps M.! r) * val / (ps M.! c)
 
-reverseSequence :: Sequence s -> Sequence s
-reverseSequence s = Sequence {
+reverseSequence :: MatSeq s -> MatSeq s
+reverseSequence s = MatSeq {
     trans = let m = getTrans s
             in snd . popCol 1 . snd . M.popRow (M.height m) $ reverseT m
   , stateLabels = V.reverse (stateLabels s)
   }
 
+filterStates :: Set M.Index -> MatSeq s -> MatSeq s
+filterStates reachable (MatSeq {..}) = MatSeq {
+    stateLabels = stateLabels'
+  , trans = trans'
+  }
+  where trans' = filterRows keepRows . filterCols keepCols $ trans
+        stateLabels' = V.ifilter (\ix _ -> succ ix `Set.member` reachable) stateLabels
+        keepRows = Set.insert 1 . Set.fromList . map succ . Set.toList $ reachable
+        keepCols = Set.fromList [nStates trans + 1 .. M.width trans] `Set.union` reachable
+
+filterCols :: (Num a) => Set M.Index -> M.SparseMatrix a -> M.SparseMatrix a
+filterCols keep m = foldl (flip M.delCol) m . filter (not . (`Set.member` keep)) . reverse $ [1..M.width m]
+
+filterRows :: (Num a) => Set M.Index -> M.SparseMatrix a -> M.SparseMatrix a
+filterRows keep m = foldl (flip M.delRow) m . filter (not . (`Set.member` keep)) . reverse $ [1..M.height m]
+
+filterUnreachableStates :: MatSeq s -> MatSeq s
+filterUnreachableStates s = filterStates (transReachable (trans s)) s
+
+transReachable :: Trans -> Set M.Index
+transReachable = uncurry reachable . transGraph
+
+transGraph :: Trans -> (Set M.Index, Map M.Index (Set M.Index))
+transGraph t = ( fromMaybe Set.empty (0 `Map.lookup` dists)
+               , 0 `Map.delete` dists)
+  where dists = Map.fromList . map (\(ix, dist) -> (ix - 1, rowSet dist)) . tail . M.vecToAssocList . M.rows $ t
+
+rowSet :: Dist -> Set M.Index
+rowSet = Set.fromList . map fst . filter ((> 0) . snd) . tail . M.vecToAssocList
+
+reachable :: (Ord a) => (Set a) -> Map a (Set a) -> Set a
+reachable initialReachable reachMap = Set.intersection keyset . snd . fromJust $ find (null . fst) steps
+  where steps = iterate step (Set.toList initialReachable, initialReachable)
+        step ((e:es), known) = case e `Map.lookup` reachMap of
+                                 Nothing -> (es, known)
+                                 Just found -> let new = found `Set.difference` known
+                                               in (es <> Set.toList new, known <> new)
+        keyset = Map.keysSet reachMap
 
 {-
 the product in its current form is useless

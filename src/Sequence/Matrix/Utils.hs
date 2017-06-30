@@ -1,6 +1,7 @@
-module Sequence.Utils where
+module Sequence.Matrix.Utils where
 
 import qualified Math.LinearAlgebra.Sparse as M
+import Sequence.Matrix.Types
 
 {-
 inverse :: M.SparseMatrix Double -> M.SparseMatrix Double
@@ -12,6 +13,20 @@ fromDense = M.fromRows . M.vecFromAssocList . zip [1..] . map (M.vecFromAssocLis
 toDense :: M.SparseMatrix Double -> DM.MatrixXd
 toDense = DM.fromList . map allElems . allRows
 -}
+
+collapseEnds :: Trans -> Trans
+collapseEnds trans = M.hconcat [main, flatEnds]
+  where (main, ends) = splitEnds trans
+        flatEnds = setWidth 1 $ M.mapOnRows (M.singVec . sum) ends
+
+splitEnds :: Trans -> (Trans, Trans)
+splitEnds trans = splitColsAt (nStates trans) trans
+
+addFixedEndRow :: Trans -> Trans
+addFixedEndRow trans = appendRow (onehotVector (M.width trans) (M.width trans)) trans
+
+nStates :: Trans -> Int
+nStates = pred . M.height
 
 mapWithIxs :: (Num a, Eq a) => ((M.Index, M.Index) -> a -> a) -> M.SparseMatrix a -> M.SparseMatrix a
 mapWithIxs fn = M.fromAssocList . map (\(ixs, a) -> (ixs, fn ixs a)) . M.toAssocList
@@ -72,7 +87,7 @@ diagConcat a d = M.blockMx [ [a, blockB]
         blockB = M.zeroMx (rA, cD)
         blockC = M.zeroMx (rD, cA)
 
---splitVecAt :: (Eq a, Fractional a) => M.Index -> M.SparseVector a -> (M.SparseVector a, M.SparseVector a)
+splitVecAt :: (Eq a, Num a) => M.Index -> M.SparseVector a -> (M.SparseVector a, M.SparseVector a)
 splitVecAt pivot = (\(a, b) -> ( M.vecFromAssocList a
                                , M.vecFromAssocList (map (\(ix, val) -> (ix - pivot, val)) b)))
                    . break ((> pivot) . fst)
@@ -81,7 +96,7 @@ splitVecAt pivot = (\(a, b) -> ( M.vecFromAssocList a
 
 
 splitRowsAt :: (Eq a, Fractional a) => M.Index -> M.SparseMatrix a -> (M.SparseMatrix a, M.SparseMatrix a)
-splitRowsAt ix = (\(a, b) -> (M.fromRows a, M.fromRows b)) . splitVecAt ix . M.rows
+splitRowsAt ix = (\(a, b) -> (M.fromRows a, M.fromRows b)) . splitAt ix . allRows
 
 splitColsAt :: (Eq a, Fractional a) => M.Index -> M.SparseMatrix a -> (M.SparseMatrix a, M.SparseMatrix a)
 splitColsAt ix = (\(a, b) -> (M.trans a, M.trans b)) . splitRowsAt ix . M.trans
