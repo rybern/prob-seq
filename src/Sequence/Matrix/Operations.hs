@@ -9,10 +9,14 @@ module Sequence.Matrix.Operations
   , finiteDistOver
   , finiteDistRepeat
   , getTrans
+  , getTransWithEnds
   , reverseSequence
+  , skip
   , skipDist
   , geometricRepeat
   , filterUnreachableStates
+  , nStates
+  , reachableSkips
   ) where
 
 import Sequence.Matrix.Types
@@ -58,6 +62,9 @@ skip n = MatSeq {
 
 getTrans :: MatSeq s -> Trans
 getTrans = addFixedEndRow . addStartColumn . collapseEnds . trans
+
+getTransWithEnds :: MatSeq s -> Trans
+getTransWithEnds = addFixedEndRow . addStartColumn . trans
 
 
 ds = deterministicSequence . V.fromList
@@ -116,6 +123,9 @@ distributeEnds trans = trimZeroCols . mapRows (distributeEndDist trans)
 
 distributeEndDist :: Trans -> Dist -> Dist
 distributeEndDist trans = (`M.row` 1) . transStepDist1 trans
+
+reachableSkips :: Trans -> [Int]
+reachableSkips m = map fst . filter snd . zip [0..] . map M.isNotZeroVec . drop (nStates m) . allCols $ m
 
 nEnds :: Trans -> Int
 nEnds m = (M.width m) - (nStates m)
@@ -220,13 +230,12 @@ mapStates f seq = seq {stateLabels = V.map f (stateLabels seq)}
 testcs = deterministicSequence (V.fromList "asdfb")
 testcs1 = eitherOr 0.3 testcs testcs
 testcs2 = andThen testcs testcs1
-testc = collapse 2 testcs2
 
 --collapse n seq = (tuples, startTrans', mainTrans', endsStart, endsTrans''', tail $ M.vecToAssocList (M.rows endsTrans), trans')
-collapse :: Int -> MatSeq a -> MatSeq (V.Vector a)
+collapse :: (Monoid a) => Int -> MatSeq a -> MatSeq a
 collapse n seq = MatSeq {
     trans = trans'
-  , stateLabels = stateLabels'
+  , stateLabels = mconcat . V.toList $ stateLabels'
   }
   where (mainStart, mainTrans, endsStart, endsTrans) = splitTransTokens (trans seq)
 

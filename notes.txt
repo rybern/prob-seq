@@ -7,8 +7,6 @@ Then, once the state sequence is recovered, we retain information about the cons
 	visualizations
 	filtering out classes of generators, such as sequencing error/mutation states.
 
-Probably better to let an AST be the primary representation, and let transition matrices be the 'export format.' ASTS are equally as expressive, but are easier for humans to read and to interpret programmatically.
-
 Idea: encode stegonographic messages into a probabilistic sequence.
 	The message would somehow determine the sampling path through the AST.
 
@@ -22,25 +20,5 @@ BIO fork:
 		mutation types/rates for particular environments
 
 
-
-
-inductive testing:
-
-inductiveSample :: ([(a, Prob)] -> m (a, Prob)) -> ProbSeq (Vector s) s -> m (Vector s, Prob)
-
-data SeqTree s t = AndThen t t
-                 | EitherOr Prob t t
-                 | Det s
-                 deriving Functor
-
-data SampledSeqTree s t = SampledSeqTree {
-       samples :: [(s, Prob)]
-     , matSeq :: MatSeq s
-     , constructor :: SeqTree s t
-}
-
-data ProbSeq s = Fix (SeqTree s)
-data SampledProbSeq s = Fix (SampledSeqTree s)
-
-unsample :: SampledProbSeq s -> ProbSeq s
-unsample = fmap constructor
+Need to fix ProbSeq generation - too much variance.
+Could probably randomly generate normalized matrices, instead of actually building the whole trees.

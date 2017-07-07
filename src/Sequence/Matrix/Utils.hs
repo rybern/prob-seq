@@ -116,6 +116,9 @@ setHeight h m = M.setSize (h, M.width m) m
 allElems :: (Num a) => M.SparseVector a -> [a]
 allElems v = map (v M.!) $ [1..M.dim v]
 
+allCols :: (Eq a, Num a) => M.SparseMatrix a -> [M.SparseVector a]
+allCols = allRows . M.trans
+
 allRows :: (Eq a, Num a) => M.SparseMatrix a -> [M.SparseVector a]
 allRows = allElems . M.rows
 

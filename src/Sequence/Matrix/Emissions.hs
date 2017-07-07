@@ -2,21 +2,26 @@
 module Sequence.Matrix.Emissions
   (
     stateSequenceProbability
+  , sequenceSuffixProbability
   ) where
 
 import Sequence.Matrix.Types
-import Sequence.Matrix.Operations (getTrans)
+import Sequence.Matrix.Operations
 import Control.Monad
 import qualified Data.Vector as V
 import qualified Math.LinearAlgebra.Sparse as M
 
-stateSequenceProbability :: (Eq s) => V.Vector s -> MatSeq s -> Prob
-stateSequenceProbability path seq = sum . pathProbs (getTrans seq) . stateSequenceIxs seq $ path
+sequenceSuffixProbability :: (Eq s) => Int -> (V.Vector s, Int) -> MatSeq s -> Prob
+sequenceSuffixProbability skipped (seq, nSkip) m =
+  stateSequenceProbability (seq, nSkip) $ skip skipped `andThen` m
 
-stateSequenceIxs :: (Eq s) => MatSeq s -> V.Vector s -> [V.Vector M.Index]
-stateSequenceIxs seq = V.toList . addEnd . V.map (stateIxs seq)
+stateSequenceProbability :: (Eq s) => (V.Vector s, Int) -> MatSeq s -> Prob
+stateSequenceProbability (path, skip) seq = sum . pathProbs (getTransWithEnds seq) . stateSequenceIxs seq $ (path, skip)
+
+stateSequenceIxs :: (Eq s) => MatSeq s -> (V.Vector s, Int) -> [V.Vector M.Index]
+stateSequenceIxs seq (path, skip) = V.toList . addEnd . V.map (stateIxs seq) $ path
   where endIx = V.length (stateLabels seq) + 2
-        addEnd = (`V.snoc` [endIx])
+        addEnd = (`V.snoc` [endIx + skip])
 
 stateIxs :: (Eq s) => MatSeq s -> s -> V.Vector M.Index
 stateIxs (MatSeq {stateLabels = stateLabels}) label =

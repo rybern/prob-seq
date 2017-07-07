@@ -33,6 +33,9 @@ library
                      , monad-loops
                      , filepath
                      , containers
+                     , data-fix
+                     , either
+                     , QuickCheck
 
 test-suite prob-seq-test
   type:                exitcode-stdio-1.0

@@ -1,1 +1,0 @@
-nix-shell -p python27Packages.numpy  python27Packages.scipy  python27Packages.cython  python27Packages.networkx  python27Packages.joblib  python27Packages.setuptools python27Packages.pip gcc
