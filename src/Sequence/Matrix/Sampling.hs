@@ -13,14 +13,11 @@ import Control.Monad.Loops
 randToIO :: Rand StdGen a -> IO a
 randToIO r = evalRand r <$> newStdGen
 
-uniformSampleFrom :: (MonadRandom m) => [a] -> m a
-uniformSampleFrom = fromList . toUniform
+uniformSampleElemFrom :: (MonadRandom m) => [a] -> m a
+uniformSampleElemFrom = fromList . toUniform
   where toUniform xs =
           let uniform = 1 / (fromIntegral (length xs))
           in map (\a -> (a, uniform)) xs
-
-nonuniformSampleFrom :: (MonadRandom m) => [(a, Prob)] -> m (a, Prob)
-nonuniformSampleFrom = fromList . map (\(a, p) -> ((a, p), p))
 
 sampleSeqWithProb :: (MonadRandom m, Eq s) => (M.SparseVector Prob -> m Int) -> MatSeq s -> m ((V.Vector s, Int), Prob)
 sampleSeqWithProb sample seq = do

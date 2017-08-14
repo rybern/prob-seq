@@ -15,8 +15,8 @@ import Sequence.Matrix as X
 import Sequence.Matrix.Sampling as X
   ( sampleSeq
   , sampleSeqWithProb
-  , uniformSampleFrom
-  , nonuniformSampleFrom
+  , vecUniformDist
+  , vecDist
   , randToIO
   )
 
