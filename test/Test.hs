@@ -1,6 +1,6 @@
 import Test.Tasty
 
-import TestOperations
+import TestConstructors
 
 main :: IO ()
 main = defaultMain operationTests

@@ -20,7 +20,8 @@ module Sequence.Matrix.Operations
   ) where
 
 import Sequence.Matrix.Types
-import Sequence.Matrix.Utils
+import Sequence.Matrix.SparseMatrixUtils
+import Sequence.Matrix.ProbSeqMatrixUtils
 import Data.Monoid ((<>))
 import Data.List (find)
 import Data.Maybe (fromJust, fromMaybe)

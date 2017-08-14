@@ -8,7 +8,7 @@ import System.FilePath.Posix
 
 import Sequence.Matrix.Operations
 import Sequence.Matrix.Types
-import Sequence.Matrix.Utils
+import Sequence.Matrix.ProbSeqMatrixUtils
 
 -- .st files should be r = c+1 with r0 startdist
 -- .st files should be internal representation

@@ -1,26 +1,15 @@
-{-# LANGUAGE OverloadedLists, TupleSections, RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 module ArbitraryConstructors where
 
-import Control.Monad.Random
-import Data.Vector (Vector)
+import Control.Monad
 import qualified Data.Vector as V
 import Data.Fix
-import Data.Monoid
-import Data.Maybe
-import Data.Foldable
 
 import Test.QuickCheck.Gen
 import Test.QuickCheck.Arbitrary
 
-import Sequence.Matrix
 import Sequence.Matrix.Types
-import Sequence.Matrix.Sampling
-import Sequence.Matrix.Emissions
-import Sequence.Matrix.Operations
 import Sequence.Constructors
-
-  -- reverse sequence is broken. test case:
-  -- (ReverseSequence (Possibly 0.15 (DeterministicSequence (V.singleton 1))))
 
 arbitraryProbSeq :: Arbitrary s => Prob -> Gen (ProbSeq s)
 arbitraryProbSeq = anaM geometricArbitraryConstructor
@@ -35,6 +24,7 @@ arbitraryBranchConstructor = oneof $
   [
     arbitraryEitherOr
   , arbitraryAndThen
+  , arbitrarySkip
   --, arbitraryPossibly
   --, arbitraryUniformDistOver
   --, arbitraryFiniteDistOver

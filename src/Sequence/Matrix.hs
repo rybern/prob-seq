@@ -1,4 +1,7 @@
-module Sequence.Matrix where
+module Sequence.Matrix ( buildConstructor
+                       , buildMatSeqTree
+                       , buildMatSeq
+                       , module Sequence.Matrix.Types ) where
 
 import Sequence.Constructors
 import Sequence.CoreConstructors
@@ -19,7 +22,7 @@ buildCoreConstructor (CReverseSequence s) = reverseSequence s
 --buildCoreConstructor (CCollapse n s) = collapse n s
 
 buildConstructor :: Constructor s (MatSeq s) -> MatSeq s
-buildConstructor = cata buildCoreConstructor . toCore
+buildConstructor = filterUnreachableStates . cata buildCoreConstructor . toCore
 
 buildMatSeq :: ProbSeq s -> MatSeq s
 buildMatSeq = cata buildConstructor

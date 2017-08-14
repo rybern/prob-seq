@@ -1,4 +1,4 @@
-module Sequence.Matrix.Utils where
+module Sequence.Matrix.SparseMatrixUtils where
 
 import qualified Math.LinearAlgebra.Sparse as M
 import Sequence.Matrix.Types
@@ -13,20 +13,6 @@ fromDense = M.fromRows . M.vecFromAssocList . zip [1..] . map (M.vecFromAssocLis
 toDense :: M.SparseMatrix Double -> DM.MatrixXd
 toDense = DM.fromList . map allElems . allRows
 -}
-
-collapseEnds :: Trans -> Trans
-collapseEnds trans = M.hconcat [main, flatEnds]
-  where (main, ends) = splitEnds trans
-        flatEnds = setWidth 1 $ M.mapOnRows (M.singVec . sum) ends
-
-splitEnds :: Trans -> (Trans, Trans)
-splitEnds trans = splitColsAt (nStates trans) trans
-
-addFixedEndRow :: Trans -> Trans
-addFixedEndRow trans = appendRow (onehotVector (M.width trans) (M.width trans)) trans
-
-nStates :: Trans -> Int
-nStates = pred . M.height
 
 mapWithIxs :: (Num a, Eq a) => ((M.Index, M.Index) -> a -> a) -> M.SparseMatrix a -> M.SparseMatrix a
 mapWithIxs fn = M.fromAssocList . map (\(ixs, a) -> (ixs, fn ixs a)) . M.toAssocList
@@ -103,9 +89,6 @@ splitColsAt ix = (\(a, b) -> (M.trans a, M.trans b)) . splitRowsAt ix . M.trans
 
 fromCols :: (Eq a, Num a, Foldable f) => f (M.SparseVector a) -> M.SparseMatrix a
 fromCols = M.trans . M.fromRows
-
-forwardDiagonal :: (Eq a, Num a) => Int -> M.SparseMatrix a
-forwardDiagonal n = M.delRow 1 . M.idMx . succ $ n
 
 setWidth :: (Num a) => Int -> M.SparseMatrix a -> M.SparseMatrix a
 setWidth w m = M.setSize (M.height m, w) m
