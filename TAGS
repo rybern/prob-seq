@@ -1,0 +1,238 @@
+
+./Setup.hs,15
+main main1,2
+
+./src/Types.hs,86
+module Types Types0,1
+type Prob Prob4,5
+type Dist Dist5,6
+type Trans Trans6,7
+
+./src/Sequence.hs,2036
+data Sequence Sequence17,18
+data Sequence s = Sequence Sequence17,18
+    trans trans18,19
+  , stateIxs stateIxs19,20
+emptySequence emptySequence22,23
+emptySequence emptySequence23,24
+getTrans getTrans28,29
+getTrans getTrans29,30
+addFixedEndRow addFixedEndRow31,32
+addFixedEndRow addFixedEndRow32,33
+collapseEnds collapseEnds34,35
+collapseEnds collapseEnds35,36
+type TransWithEndTransitions TransWithEndTransitions39,40
+ds ds57,58
+deterministicSequence deterministicSequence59,60
+deterministicSequence deterministicSequence60,61
+eitherOr eitherOr65,66
+eitherOr eitherOr66,67
+andThen andThen84,85
+andThen andThen85,86
+distributeEnds distributeEnds101,102
+distributeEnds distributeEnds102,103
+distributeEndDist distributeEndDist104,105
+distributeEndDist distributeEndDist105,106
+nStates nStates107,108
+nStates nStates108,109
+nEnds nEnds110,111
+nEnds nEnds111,112
+maxUsedEnd maxUsedEnd113,114
+maxUsedEnd maxUsedEnd114,115
+splitTransTokens splitTransTokens119,120
+splitTransTokens splitTransTokens120,121
+splitEnds splitEnds125,126
+splitEnds splitEnds126,127
+splitStart splitStart128,129
+splitStart splitStart129,130
+joinTransTokens joinTransTokens131,132
+joinTransTokens joinTransTokens132,133
+addStartColumn addStartColumn137,138
+addStartColumn addStartColumn138,139
+removeEndTransitions removeEndTransitions140,141
+--removeEndTransitions --removeEndTransitions141,142
+removeEndTransitions removeEndTransitions142,143
+addEndTransitions addEndTransitions144,145
+addEndTransitions addEndTransitions145,146
+transStep transStep150,151
+transStep transStep151,152
+repeatSteps repeatSteps156,157
+repeatSteps repeatSteps157,158
+transNSteps transNSteps159,160
+transNSteps transNSteps160,161
+transStepDist transStepDist163,164
+transStepDist transStepDist164,165
+transStepDist1 transStepDist1166,167
+transStepDist1 transStepDist1167,168
+test test169,170
+test2 test2170,171
+test2t test2t171,172
+test2' test2'172,173
+tov tov174,175
+
+./src/SparseTransFiles.hs,446
+module SparseTransFiles SparseTransFiles0,1
+writeSTFile writeSTFile16,17
+writeSTFile writeSTFile17,18
+writeSTPFile writeSTPFile19,20
+writeSTPFile writeSTPFile20,21
+writeSeqToFile writeSeqToFile22,23
+writeSeqToFile writeSeqToFile28,29
+readSTFile readSTFile45,46
+readSTFile readSTFile48,49
+readSTPFile readSTPFile50,51
+readSTPFile readSTPFile53,54
+readSeqFromFile readSeqFromFile56,57
+readSeqFromFile readSeqFromFile60,61
+
+./src/Sampling.hs,390
+module Sampling Sampling0,1
+sample sample10,11
+sample sample11,12
+type Rand' Rand'13,14
+randToIO randToIO14,15
+randToIO randToIO15,16
+sample' sample'17,18
+sample' sample'18,19
+sampleTrans sampleTrans23,24
+sampleTrans sampleTrans24,25
+stepSequence stepSequence31,32
+stepSequence stepSequence32,33
+vecToRandDist vecToRandDist34,35
+vecToRandDist vecToRandDist35,36
+
+./src/ConstructionFiles.hs,436
+module ConstructionFiles ConstructionFiles1,2
+readSeqFile readSeqFile14,15
+readSeqFile readSeqFile16,17
+builderHelpString builderHelpString22,23
+builderHelpString builderHelpString23,24
+printHelp printHelp25,26
+printHelp printHelp26,27
+runBuilderFile runBuilderFile28,29
+runBuilderFile runBuilderFile29,30
+runBuilderLines runBuilderLines34,35
+runBuilderLines runBuilderLines35,36
+spec spec40,41
+spec spec41,42
+
+./src/MatrixUtils.hs,1512
+module MatrixUtils MatrixUtils0,1
+mapWithIxs mapWithIxs15,16
+mapWithIxs mapWithIxs16,17
+reverseVec reverseVec18,19
+reverseVec reverseVec19,20
+reverseCols reverseCols26,27
+reverseCols reverseCols27,28
+reverseRows reverseRows29,30
+reverseRows reverseRows30,31
+prependRow prependRow32,33
+prependRow prependRow33,34
+prependCol prependCol35,36
+prependCol prependCol36,37
+appendRow appendRow38,39
+appendRow appendRow39,40
+appendCol appendCol41,42
+appendCol appendCol42,43
+popCol popCol44,45
+popCol popCol45,46
+trimZeroCols trimZeroCols47,48
+trimZeroCols trimZeroCols48,49
+popLastCol popLastCol53,54
+popLastCol popLastCol54,55
+onehotVector onehotVector57,58
+onehotVector onehotVector58,59
+normalize normalize60,61
+normalize normalize61,62
+colMx colMx63,64
+colMx colMx64,65
+diagConcat diagConcat66,67
+diagConcat diagConcat67,68
+--splitVecAt --splitVecAt74,75
+splitVecAt splitVecAt75,76
+splitRowsAt splitRowsAt82,83
+splitRowsAt splitRowsAt83,84
+splitColsAt splitColsAt85,86
+splitColsAt splitColsAt86,87
+fromCols fromCols88,89
+fromCols fromCols89,90
+forwardDiagonal forwardDiagonal91,92
+forwardDiagonal forwardDiagonal92,93
+setWidth setWidth94,95
+setWidth setWidth95,96
+setHeight setHeight97,98
+setHeight setHeight98,99
+allElems allElems100,101
+allElems allElems101,102
+allRows allRows103,104
+allRows allRows104,105
+listToVec listToVec106,107
+listToVec listToVec107,108
+mapRows mapRows109,110
+mapRows mapRows110,111
+
+./src/SequenceCompositions.hs,1062
+module SequenceCompositions SequenceCompositions0,1
+mapStates mapStates10,11
+mapStates mapStates11,12
+testcs testcs13,14
+testcs1 testcs114,15
+testcs2 testcs215,16
+testc testc16,17
+--collapse --collapse18,19
+collapse collapse19,20
+collapse collapse20,21
+tuplifyStateTransitions tuplifyStateTransitions85,86
+tuplifyStateTransitions tuplifyStateTransitions89,90
+possibly possibly94,95
+possibly possibly95,96
+uniformDistOver uniformDistOver97,98
+uniformDistOver uniformDistOver98,99
+finiteDistOver finiteDistOver101,102
+finiteDistOver finiteDistOver102,103
+skipDist skipDist106,107
+skipDist skipDist109,110
+--geometricRepeat --geometricRepeat115,116
+geometricRepeat geometricRepeat116,117
+finiteDistRepeat finiteDistRepeat120,121
+finiteDistRepeat finiteDistRepeat121,122
+uniformDistRepeat uniformDistRepeat125,126
+uniformDistRepeat uniformDistRepeat126,127
+dropoutDist dropoutDist128,129
+dropoutDist dropoutDist129,130
+priors priors133,134
+reverseT reverseT143,144
+reverseSequence reverseSequence153,154
+
+./src/Main.hs,304
+module Main Main1,2
+deterministicSequence' deterministicSequence'35,36
+apple apple36,37
+banana banana37,38
+question question38,39
+exclaim exclaim39,40
+assert assert40,41
+apples apples42,43
+punctuation punctuation44,45
+whatILike whatILike46,47
+a a49,50
+a' a'50,51
+main main52,53
+
+./src/CLI.hs,463
+module CLI CLI1,2
+data Options Options12,13
+data Options = Options Options12,13
+    inputFile inputFile13,14
+  , stOutput stOutput14,15
+  , stpOutput stpOutput15,16
+  , sampling sampling16,17
+runCLI runCLI19,20
+runCLI runCLI20,21
+runOptions runOptions25,26
+runOptions runOptions26,27
+maybeOption maybeOption48,49
+autoOption autoOption50,51
+builderHelpOption builderHelpOption52,53
+cliParser cliParser57,58
+cliParser cliParser58,59

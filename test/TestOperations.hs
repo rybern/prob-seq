@@ -17,7 +17,8 @@ import Sequence.AST
 import Sequence.Matrix.Operations
 import Sequence.Matrix.Sampling
 import Sequence.Matrix.Emissions
-import ArbitraryAST
+
+import ArbitraryConstructors
 
 operationTests = testGroup "Operations"
   [

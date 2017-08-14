@@ -5,10 +5,10 @@ version:             0.1.0.0
 homepage:            https://github.com/githubuser/prob-seq#readme
 license:             BSD3
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2017 Author name here
-category:            Web
+author:              Ryan Bernstein
+maintainer:          ryan.bernstein@columbia.edu
+copyright:           2017 Ryan Bernstein
+category:            Machine Learning
 build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:  README.md
@@ -19,6 +19,8 @@ library
                      , Sequence.AST
                      , Sequence.ProbTree
                      , Sequence.Types
+                     , Sequence.Constructors
+                     , Sequence.Matrix
                      , Sequence.Matrix.Operations
                      , Sequence.Matrix.Sampling
                      , Sequence.Matrix.Utils
@@ -47,6 +49,7 @@ test-suite prob-seq-test
                      , sparse-lin-alg
                      , vector
                      , MonadRandom
+                     , data-fix
                      , monad-loops
                      , QuickCheck
                      , tasty-quickcheck

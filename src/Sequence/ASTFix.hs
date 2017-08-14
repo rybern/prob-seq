@@ -105,11 +105,6 @@ mapWith cf (ProbSeqWith (Fix constr)) =
       constructor = (unProbSeqWith . mapWith cf . ProbSeqWith) <$> constructor constr'
     }
 
-toCC = undefined
-
-toC :: Constructor s a -> CoreProbSeq a s
-toC = fix toCC
-
 constrToCore :: CoreConstructor' a s (Constructor s a)
              -> CoreProbSeq a s
 constrToCore = Fix . fmap toCore
@@ -170,6 +165,7 @@ buildMatSeqTree = ProbSeqWith . Fix . cata (\constr -> ConstructorWith {
                                                  with = buildConstructor (with <$> constr)
                                                , constructor = Fix <$> constr
                                                } )
+
 
 -- if there are any other subtree results that could produce the output,
 -- enumerate all those subtree results and query them.
