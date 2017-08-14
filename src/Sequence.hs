@@ -28,3 +28,7 @@ import Sequence.Matrix.IO.TransMatrix as X
   , readSTFile
   , readSTPFile
   )
+
+import Data.Fix as X
+  ( Fix (..)
+  )
