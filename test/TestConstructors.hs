@@ -49,48 +49,9 @@ statisticalSequenceProbability (LargeProbSeq (ast, seq)) = ioProperty $ do
 
   return $ err > 0.001
 
--- kind of approximate. using estimated proportion to estimate uncertainty of proportion.
-proportionTTest :: Rational -> Rational -> Int -> Rational
-proportionTTest muA muB n = undefined
-  where varA = muA * (1 - muA) / fromIntegral n
-        varB = muB * (1 - muB) / fromIntegral n
-
-bernouliSampleDist :: [Bool] -> (Rational, Rational, Int)
-bernouliSampleDist trials = (mu, var, n)
-  where n = length trials
-        mu = (/ fromIntegral n) . fromIntegral . length . filter id $ trials
-        var = (mu * (1 - mu) / (fromIntegral n))
-
-joinBernouliSampleDist :: (Rational, Rational, Int) -> (Rational, Rational, Int) -> (Rational, Rational, Int)
-joinBernouliSampleDist (prevMu, prevVar, prevN) (nextMu, nextVar, nextN) = (newMu, newVar, newN)
-  where newN = prevN + nextN
-        newMu = ((fromIntegral prevN) * prevMu + (fromIntegral nextN) * nextMu) / fromIntegral newN
-        newVar = newMu * (1 - newMu) / fromIntegral newN
-
-
-{-
-correctSampleProbPropTest = flip testProperty correctSampleProbProp $
-  "Random seq constructor and exact sample probability match trans matrix sample probability"
-correctSampleProbProp :: SampledSequenceConstructor Word8 -> Bool
-correctSampleProbProp (SampledSequenceConstructor (consts, (path, p))) =
-  let probs = stateSequenceProbability (buildSequence consts) path
-  in any (aproxEq p) probs
-     || (p `aproxEq` 0.0 && V.length probs == 0)
--}
-
 aproxEq :: Double -> Double -> Bool
 aproxEq a b = (a - eps) < b && b < (a + eps)
   where eps = 0.00000001
-
-subsetsProd :: (Num a) => V.Vector a -> V.Vector a
-subsetsProd = V.map getProduct . subsets . V.map Product
-
-subsets :: (Monoid m) => V.Vector m -> V.Vector m
-subsets m = if V.length m <= 1
-            then m
-            else let first = V.head m
-                     withRest = subsets $ V.tail m
-                 in first `V.cons` (withRest <> V.map (first <>) withRest)
 
 seriesDistributesPropTest = testProperty "andThen distributes over <>" seriesDistributesProp
 seriesDistributesProp :: V.Vector Word8 -> V.Vector Word8 -> Bool
