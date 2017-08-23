@@ -26,7 +26,7 @@ sampleSeqWithProb sample seq = do
 
 sampleSeq :: (MonadRandom m) => (M.SparseVector Prob -> m Int) -> MatSeq s -> m (V.Vector s, Int)
 sampleSeq sample seq = do
-  let trans = getTransWithEnds seq
+  let trans = getNormalTransWithEnds seq
   ixs <- sampleTrans sample trans
   let stateIxs = V.filter (\ix -> ix /= 1 && ix /= V.last ixs) ixs
       endIx = V.last ixs - M.height trans

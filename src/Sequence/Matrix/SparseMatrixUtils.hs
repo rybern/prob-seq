@@ -1,6 +1,8 @@
 module Sequence.Matrix.SparseMatrixUtils where
 
 import qualified Math.LinearAlgebra.Sparse as M
+import Data.Set (Set)
+import qualified Data.Set as Set
 import Sequence.Matrix.Types
 
 {-
@@ -45,6 +47,12 @@ appendCol v m = M.addCol v (succ (M.width m)) m
 
 popCol :: (Eq a, Num a) => M.Index -> M.SparseMatrix a -> (M.SparseVector a, M.SparseMatrix a)
 popCol i m = (M.col m i, M.delCol i m)
+
+filterCols :: (Num a) => Set M.Index -> M.SparseMatrix a -> M.SparseMatrix a
+filterCols keep m = foldl (flip M.delCol) m . filter (not . (`Set.member` keep)) . reverse $ [1..M.width m]
+
+filterRows :: (Num a) => Set M.Index -> M.SparseMatrix a -> M.SparseMatrix a
+filterRows keep m = foldl (flip M.delRow) m . filter (not . (`Set.member` keep)) . reverse $ [1..M.height m]
 
 trimZeroCols :: (Eq a, Num a) => M.SparseMatrix a -> M.SparseMatrix a
 trimZeroCols m = let (lastCol, m') = popLastCol m

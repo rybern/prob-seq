@@ -16,7 +16,7 @@ sequenceSuffixProbability skipped (seq, nSkip) m =
   stateSequenceProbability (seq, nSkip) $ skip skipped `andThen` m
 
 stateSequenceProbability :: (Eq s) => (V.Vector s, Int) -> MatSeq s -> Prob
-stateSequenceProbability (path, skip) seq = sum . pathProbs (getTransWithEnds seq) . stateSequenceIxs seq $ (path, skip)
+stateSequenceProbability (path, skip) seq = sum . pathProbs (getNormalTransWithEnds seq) . stateSequenceIxs seq $ (path, skip)
 
 stateSequenceIxs :: (Eq s) => MatSeq s -> (V.Vector s, Int) -> [V.Vector M.Index]
 stateSequenceIxs seq (path, skip) = V.toList . addEnd . V.map (stateIxs seq) $ path

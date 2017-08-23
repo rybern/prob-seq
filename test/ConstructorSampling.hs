@@ -37,8 +37,6 @@ sequenceDist ms = SeqDist {
   , seqSuffixProb = \i s -> sequenceSuffixProbability i s ms
   }
 
--- if there are any other subtree results that could produce the output,
--- enumerate all those subtree results and query them.
 constructorSeqProb :: (Eq s)
                   => Constructor s (SequenceDist s)
                   -> (Vector s, Int)
