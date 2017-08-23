@@ -115,7 +115,7 @@ checkMatSeqExact :: (Eq s, MonadRandom m)
                  -> ConstructorWith s (MatSeq s) (MatSeq s)
                  -> m (Maybe (CompareError s))
 checkMatSeqExact sampleM c@(ConstructorWith {..}) = do
-  subtreeSamples <- sampleM $ sampleConstructor uniformSampleFrom constructor
+  subtreeSamples <- sampleM $ sampleConstructor uniformSampleElemFrom constructor
   return . getFirst . mconcat . map First . flip map subtreeSamples $ \(v, p) ->
     let p' = stateSequenceProbability v with
     in if p == p'

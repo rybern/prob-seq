@@ -15,21 +15,24 @@ import Test.Tasty.HUnit
 import Sequence
 
 import ArbitraryConstructors
+import TestAST
 
 operationTests = testGroup "Operations"
   [
     seriesDistributesPropTest
   , deterministicIsConstantPropTest
-  , localOption (QuickCheckTests 10000) exactSequenceProbabilityTest
+  , localOption (QuickCheckTests 100000) exactSequenceProbabilityTest
   --, statisticalSequenceProbabilityTest
   ]
 
 exactSequenceProbabilityTest = flip testProperty exactSequenceProbability $
   "Random seq constructor and exact sample probability match trans matrix sample probability"
 exactSequenceProbability :: SmallProbSeq Word8 -> Property
-exactSequenceProbability (SmallProbSeq (ast, seq)) =
-  sequenceProbAST seq ast === stateSequenceProbability seq (buildMatSeq ast)
+exactSequenceProbability (SmallProbSeq ps) = ioProperty $ do
+  failures <- getProbSeqFailures ps
+  return $ map show failures === []
 
+{-
 statisticalSequenceProbabilityTest = flip testProperty statisticalSequenceProbability $
   "Random seq constructor and exact sample probability match trans matrix sample probability"
 statisticalSequenceProbability :: LargeProbSeq Word8 -> Property
@@ -48,6 +51,7 @@ statisticalSequenceProbability (LargeProbSeq (ast, seq)) = ioProperty $ do
       err = abs (astProportion - matProportion)
 
   return $ err > 0.001
+-}
 
 aproxEq :: Double -> Double -> Bool
 aproxEq a b = (a - eps) < b && b < (a + eps)
@@ -56,15 +60,16 @@ aproxEq a b = (a - eps) < b && b < (a + eps)
 seriesDistributesPropTest = testProperty "andThen distributes over <>" seriesDistributesProp
 seriesDistributesProp :: V.Vector Word8 -> V.Vector Word8 -> Bool
 seriesDistributesProp s1 s2 =
-  deterministicSequence s1 <> deterministicSequence s2 == deterministicSequence (s1 <> s2)
+  (build $ DeterministicSequence s1) <> (build $ DeterministicSequence s2) == (build $ DeterministicSequence (s1 <> s2))
+  where build = buildMatSeq . Fix
 
 deterministicIsConstantPropTest = testProperty "deterministicSequence . sampleSeq == id" $
   \v -> ioProperty $ deterministicIsConstantProp v
 deterministicIsConstantProp :: V.Vector Word8 -> IO Bool
 deterministicIsConstantProp s1 = do
-  let seq = deterministicSequence s1
-  samples <- replicateM 10 $ sampleSeq seq
-  return $ all (== s1) samples
+  let seq = Fix $ DeterministicSequence s1
+  samples <- replicateM 10 $ sampleSeq vecUniformDist (buildMatSeq seq)
+  return $ all (== (s1, 0)) samples
 
 instance Arbitrary e => Arbitrary (V.Vector e) where
   arbitrary = V.fromList <$> arbitrary

@@ -11,6 +11,12 @@ import Test.QuickCheck.Arbitrary
 import Sequence.Matrix.Types
 import Sequence.Constructors
 
+newtype SmallProbSeq s = SmallProbSeq (ProbSeq s)
+  deriving Show
+
+instance Arbitrary s => Arbitrary (SmallProbSeq s) where
+  arbitrary = SmallProbSeq <$> arbitraryProbSeq 0.9
+
 arbitraryProbSeq :: Arbitrary s => Prob -> Gen (ProbSeq s)
 arbitraryProbSeq = anaM geometricArbitraryConstructor
 
@@ -25,9 +31,9 @@ arbitraryBranchConstructor = oneof $
     arbitraryEitherOr
   , arbitraryAndThen
   , arbitrarySkip
-  --, arbitraryPossibly
+  , arbitraryPossibly
   --, arbitraryUniformDistOver
-  --, arbitraryFiniteDistOver
+  , arbitraryFiniteDistOver
   --, arbitraryFiniteDistRepeat
   --, arbitraryUniformDistRepeat
   --, arbitraryReverseSequence

@@ -13,7 +13,6 @@ import Test.QuickCheck
 import Test.Tasty.HUnit
 
 import Sequence
-import Sequence.AST
 import Sequence.Matrix.Operations
 import Sequence.Matrix.Sampling
 import Sequence.Matrix.Emissions
