@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, OverloadedLists, TupleSections, RecordWildCards #-}
+{-# LANGUAGE RankNTypes, OverloadedLists, TupleSections, RecordWildCards, ViewPatterns #-}
 module ConstructorSampling where
 
 import Control.Monad.Random
@@ -57,6 +57,22 @@ constructorSeqProb (Possibly p m) s = if s == (V.empty, 0)
                                      then (1 - p) + p * seqProb m s
                                      else p * seqProb m s
 constructorSeqProb (FiniteDistOver ms) s = sum $ map (\(m, p) -> p * seqProb m s) ms
+constructorSeqProb (Collapse split _ n m) (V.map split -> ss, sk) =
+  if valid
+  then seqProb m (recovered, sk)
+  else 0.0
+  where validPair s1 s2 = V.tail s1 == V.init s2
+        validList (t1:t2:rest) = validPair t1 t2 && validList (t2:rest)
+        validList _ = True
+        valid = validList (V.toList ss)
+        recovered = V.head ss <> (V.map V.last (V.tail ss))
+constructorSeqProb (ReverseSequence m) (s, sk) =
+  if sk /= 0
+  then 0.0
+  else sum $ [ seqProb m (V.reverse s, sk')
+             | sk' <- possibleSkips m
+             ]
+
 --constructorSeqProb (GeometricRepeat p m) s = undefined
 
 {-
@@ -72,9 +88,6 @@ sampleConstructor sampleList (FiniteDistRepeat ps m) = do
       seq = foldl1' join samples
 
 sampleConstructor sampleList (UniformDistRepeat n m) = undefined
-sampleConstructor _ (ReverseSequence m) = do
-  ((v, _), p) <- sampleSeqWithProb vecUniformDist m
-  return (V.reverse v, p)
 sampleConstructor sampleList (Collapse n m) = undefined
 -}
 

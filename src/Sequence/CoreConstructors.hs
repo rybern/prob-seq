@@ -22,10 +22,10 @@ data CoreConstructor' a s t =
   | CAndThen t t
   | CIntersperse t t
   | CReverseSequence t
-  | CCollapse Int t
+  | CCollapse (Vector s -> s) Int t
   | CGeometricRepeat Prob t
   | CId a
-  deriving (Show, Functor)
+  deriving (Functor)
 
 type CoreConstructor s t = CoreConstructor' t s t
 type CoreProbSeq a s = Fix (CoreConstructor' a s)
@@ -52,7 +52,7 @@ toCore (EitherOr p a1 a2) = Fix $ CEitherOr p (cid a1) (cid a2)
 toCore (AndThen a1 a2) = Fix $ CAndThen (cid a1) (cid a2)
 toCore (ReverseSequence a1) = Fix $ CReverseSequence (cid a1)
 toCore (GeometricRepeat p a1) = Fix $ CGeometricRepeat p (cid a1)
-toCore (Collapse n a1) = Fix $ CCollapse n (cid a1)
+toCore (Collapse _ f n a1) = Fix $ CCollapse f n (cid a1)
 toCore (SkipDist dist a1) =
   let skipSeq = coreFiniteDistOver $ zip (Fix CEmptySequence : map (Fix . CSkip) [1..]) dist
   in Fix $ CIntersperse skipSeq (cid a1)

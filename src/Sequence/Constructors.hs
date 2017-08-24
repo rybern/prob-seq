@@ -4,6 +4,7 @@ module Sequence.Constructors where
 import Sequence.Matrix.Types
 import Data.Vector (Vector)
 import Data.Fix
+import Data.List
 import qualified Data.Vector as V
 
 data Constructor s t =
@@ -20,9 +21,29 @@ data Constructor s t =
   | FiniteDistRepeat [Prob] t
   | UniformDistRepeat Int t
   | ReverseSequence t
-  | Collapse Int t
+  | Collapse (s -> Vector s) (Vector s -> s) Int t
   | SkipDist [Prob] t
-  deriving (Show, Functor, Foldable, Traversable)
+  deriving (Functor, Foldable, Traversable)
+
+-- should maybe write these for core constructors instead
+instance (Show s, Show t) => Show (Constructor s t) where
+  show EmptySequence = "<>"
+  show (DeterministicSequence v) = "<" ++ show v ++ ">"
+  show (Skip n) = "skip[" ++ show n ++ "]"
+  show (MatrixForm _) = "mat"
+  show (EitherOr p a b) = "{" ++ show p ++ ": " ++ show a ++ ", 1-" ++ show p ++ ": " ++ show b ++ "}"
+  show (AndThen a b) = "<" ++ show a ++ ", " ++ show b ++ ">"
+  show (Possibly p a) = "{" ++ show p ++ "? " ++ show a ++ "}"
+  show (UniformDistOver as) = "{" ++ show as ++ "}"
+  show (FiniteDistOver as) = "{" ++ (intercalate ", " (map (\(a, p) -> show p ++ ": " ++ show a) as)) ++ "}"
+  show (GeometricRepeat p a) = show a ++ "[" ++ show p ++ "...]"
+  show (FiniteDistRepeat ps a) = show a ++ "[" ++ show ps ++ "]"
+  show (UniformDistRepeat n a) = show a ++ "[0.." ++ show n ++ "]"
+  show (ReverseSequence a) = "reverse(" ++ show a ++ ")"
+  show (Collapse _ _ n a) = "collapse(" ++ show n ++ ", " ++ show a ++ ")"
+  show (SkipDist ps a) = "<skip[" ++ show ps ++ "], " ++ show a ++ ">"
+
+
 
 type ProbSeq s = Fix (Constructor s)
 

@@ -16,6 +16,12 @@ toDense :: M.SparseMatrix Double -> DM.MatrixXd
 toDense = DM.fromList . map allElems . allRows
 -}
 
+buildMatrix :: (Num a, Eq a)
+            => (M.Index, M.Index)
+            -> ((M.Index, M.Index) -> a)
+            -> M.SparseMatrix a
+buildMatrix size f = mapWithIxs (\ix _ -> f ix) (M.zeroMx size)
+
 mapWithIxs :: (Num a, Eq a) => ((M.Index, M.Index) -> a -> a) -> M.SparseMatrix a -> M.SparseMatrix a
 mapWithIxs fn = M.fromAssocList . map (\(ixs, a) -> (ixs, fn ixs a)) . M.toAssocList
 

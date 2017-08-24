@@ -2,14 +2,20 @@
 module Sequence.Matrix.Emissions
   (
     stateSequenceProbability
+  , sequencePrefixProbability
   , sequenceSuffixProbability
   ) where
 
 import Sequence.Matrix.Types
-import Sequence.Matrix.Operations
+import Sequence.Matrix.ProbSeqMatrixUtils
+import Sequence.Matrix.Operations.AndThen
+import Sequence.Matrix.Operations.Deterministic
 import Control.Monad
 import qualified Data.Vector as V
 import qualified Math.LinearAlgebra.Sparse as M
+
+sequencePrefixProbability :: (Eq s) => V.Vector s -> MatSeq s -> Prob
+sequencePrefixProbability path seq = sum . pathProbs (getNormalTransWithEnds seq) . V.toList . V.map (stateIxs seq) $ path
 
 sequenceSuffixProbability :: (Eq s) => Int -> (V.Vector s, Int) -> MatSeq s -> Prob
 sequenceSuffixProbability skipped (seq, nSkip) m =
