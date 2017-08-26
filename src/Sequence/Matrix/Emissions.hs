@@ -2,6 +2,7 @@
 module Sequence.Matrix.Emissions
   (
     stateSequenceProbability
+  , endAfterStepsProbability
   , sequencePrefixProbability
   , sequenceSuffixProbability
   ) where
@@ -13,6 +14,21 @@ import Sequence.Matrix.Operations.Deterministic
 import Control.Monad
 import qualified Data.Vector as V
 import qualified Math.LinearAlgebra.Sparse as M
+
+endAfterStepsProbability :: MatSeq s -> Int -> Int -> Prob
+endAfterStepsProbability seq n end = endAfterStepsProbability' (squareMain, ends) n end 1
+  where (main, ends) = splitEnds (trans seq)
+        squareMain = addStartColumn main
+
+endAfterStepsProbability' :: (Trans, Trans) -> Int -> Int -> M.Index -> Prob
+endAfterStepsProbability' _ 0 _ _ = 0.0
+endAfterStepsProbability' (main, ends) n end current = thisRowEnd + sum nextRowEnds
+  where thisRowEnd = M.row ends current M.! (end+1)
+        nexts = M.row main current
+        nextRowEnds = map (\(ix, p) -> p * endAfterStepsProbability' (main, ends) (n-1) end ix)
+                    . tail
+                    . M.vecToAssocList
+                    $ nexts
 
 sequencePrefixProbability :: (Eq s) => V.Vector s -> MatSeq s -> Prob
 sequencePrefixProbability path seq = sum . pathProbs (getNormalTransWithEnds seq) . V.toList . V.map (stateIxs seq) $ path

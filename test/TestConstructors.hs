@@ -17,6 +17,10 @@ import Sequence
 import ArbitraryConstructors
 import TestAST
 
+-- Add test to make sure that all rows of randomly generated ProbSeq -> MatSeq sum to 1
+-- Also, instead of removing unreachable states after every call to buildMatrix, call it only on operations that might leave unreachable states, like collapse and skip
+
+
 operationTests = testGroup "Operations"
   [
     seriesDistributesPropTest

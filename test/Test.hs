@@ -1,6 +1,9 @@
+{-# LANGUAGE OverloadedLists #-}
 import Test.Tasty
 
 import TestConstructors
 
+
 main :: IO ()
-main = defaultMain operationTests
+main = do
+  defaultMain operationTests

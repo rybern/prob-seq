@@ -26,6 +26,7 @@ data SequenceDist s = SeqDist {
     seqProb :: (Vector s, Int) -> Prob
   , possibleSkips :: [Int]
   , seqSuffixProb :: Int -> (Vector s, Int) -> Prob
+  , endAfterN :: Int -> Int -> Prob
   }
 
 sequenceDist :: (Eq s)
@@ -35,6 +36,7 @@ sequenceDist ms = SeqDist {
     seqProb = \s -> stateSequenceProbability s ms
   , possibleSkips = reachableSkips (trans ms)
   , seqSuffixProb = \i s -> sequenceSuffixProbability i s ms
+  , endAfterN = endAfterStepsProbability ms
   }
 
 constructorSeqProb :: (Eq s)
@@ -58,14 +60,22 @@ constructorSeqProb (Possibly p m) s = if s == (V.empty, 0)
                                      else p * seqProb m s
 constructorSeqProb (FiniteDistOver ms) s = sum $ map (\(m, p) -> p * seqProb m s) ms
 constructorSeqProb (Collapse split _ n m) (V.map split -> ss, sk) =
-  if valid
-  then seqProb m (recovered, sk)
-  else 0.0
+  if not valid
+  then 0.0
+  else if V.null ss
+    -- this needs to exactly reimplement what's in collapse; total probability of ending in the first n-1 steps
+       then endAfterN m n sk
+       else let recovered = V.head ss <> (V.map V.last (V.tail ss))
+            in seqProb m (recovered, sk)
+
   where validPair s1 s2 = V.tail s1 == V.init s2
         validList (t1:t2:rest) = validPair t1 t2 && validList (t2:rest)
         validList _ = True
         valid = validList (V.toList ss)
-        recovered = V.head ss <> (V.map V.last (V.tail ss))
+
+        -- if ss is empty, recovered could be anything of length 0 to n-1
+        -- probability of an empty suffix after n-1 steps?
+
 constructorSeqProb (ReverseSequence m) (s, sk) =
   if sk /= 0
   then 0.0

@@ -1,4 +1,4 @@
-{-# LANGUAGE MonadComprehensions, ViewPatterns #-}
+{-# LANGUAGE MonadComprehensions, ViewPatterns, OverloadedLists #-}
 module Sequence.Matrix.Operations.Collapsing where
 
 import Sequence.Matrix.Types
@@ -18,41 +18,80 @@ import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as Map
 
--- indices between sparse and data.vector are off
+import Debug.Trace
+
+{-
+What should the behavior be in something like:
+Collapse 5 (EitherOr 0.5 (Deterministic [1,2]) (Deterministic [1,2,3,4,5]))
+maybe bad example, cant think too sleepy
+
+but shouldn't there sometimes be the be a chance for collapsed states that were truncated to end in skips?
+-}
+
+-- is collapse . geometric infinite?
+
+-- returns [] instead of [1] if n longer than seq
 collapse :: (Eq a) => (Vector a -> a) -> Int -> MatSeq a -> MatSeq a
-collapse concatLabels n seq = MatSeq {
-    trans = trans'
+collapse concatLabels n seq = --traceShow (V.length (stateLabels seq), (trans seq), n, "trans'", trans', tuples) $
+  MatSeq {
+    trans = if M.isZeroMx trans' then M.sparseMx [[1]] else trans'
   , stateLabels = V.map concatLabels stateTuples
   }
-  where tuples = V.map (V.map pred) $ stateNPaths n (trans seq)
+  where (main, ends) = splitEnds (trans seq)
+        squareMain = addStartColumn main
+        (shiftedStartTuplePairs, endsStart') = monolith (squareMain, ends) (n + 1) 1
+        startTupleMap = Map.mapKeys (V.tail . V.map (\n->n-2)) . Map.fromList . V.toList $ shiftedStartTuplePairs
+
+        tuples = V.map (V.map pred) $ stateNPaths n (trans seq)
         stateTuples = V.map (V.map (stateLabels seq V.!)) tuples
         nTuples = V.length tuples
 
         (mainStart, mainTrans, endsStart, endsTrans) = splitTransTokens (trans seq)
 
-        startTrans' = M.vecFromAssocList . V.toList . V.indexed . V.map (flip sequencePrefixProbability seq)
-          $ stateTuples
+        startTrans' = toVec . V.map (\tup -> Map.findWithDefault 0.0 tup startTupleMap) $ tuples
 
-        endsTrans' = M.fromRows . V.toList . V.map (M.row endsTrans . V.last) $ tuples
+        f :: Vector a -> (Prob, Dist)
+        f tup = undefined
+        tupleProbs = V.map f tuples
+        starts = fst . V.unzip $ tupleProbs
 
-        tupleTrans ((tuples V.!) -> t1, (tuples V.!) -> t2) =
+        startTrans'' = toVec starts
+
+        endsStart'' = endsStart + (sum . V.map (\(p, ends) -> (p *) <$> ends) $ tupleProbs)
+
+        tupleTrans ((tuples V.!) . pred -> t1, (tuples V.!) . pred -> t2) =
           if V.tail t1 == V.init t2
-          then mainTrans M.# (V.last t1, V.last t2)
+          then mainTrans M.# (V.last t1 + 1, V.last t2 + 1)
           else 0.0
 
         mainTrans' = buildMatrix (nTuples, nTuples) tupleTrans
 
-        trans' = joinTransTokens (startTrans', mainTrans', endsStart, endsTrans')
+        endsTrans' = M.fromRows . V.toList . V.map (M.row endsTrans . succ . V.last) $ tuples
 
+        trans' = joinTransTokens (startTrans', mainTrans', endsStart', endsTrans')
 
+-- THE INDICES FROM vecToAssocList row WILL NOT TRANSLATE UNLESS YOU ADD THE START COLUMN OR SPECIALIZE STARTS
+--prepend starting vec and reduce the indices afterward
+monolith :: (Trans, Trans)
+         -> Int
+         -> M.Index
+         -> (Vector (Vector Int, Prob), Dist)
+monolith _ 1 current = ([([current], 1.0)], M.zeroVec 1)
+monolith (main, ends) n current = V.foldl join (V.empty, rowEnds) $ V.map recurse subtrees
+  where rowEnds = M.row ends current
+        subtrees = V.fromList . tail . M.vecToAssocList $ M.row main current
+        recurse (ix, p) =
+          let (tuples, rowEnds) = monolith (main, ends) (n-1) ix
+          in (V.map (\(tuple, q) -> (current `V.cons` tuple, p * q)) tuples, (p *) <$> rowEnds)
+        join (tuples1, startEnds1) (tuples2, startEnds2) = (tuples1 <> tuples2, startEnds1 + startEnds2)
 
 stateNPaths :: Int
             -> Trans
             -> V.Vector (V.Vector Int)
 stateNPaths n trans = graphNPaths n stateIxs stateOuts
-  where stateIxs = V.fromList [1 .. nStates trans + 1]
-        (_, mainTrans, endsStart, endsTrans) = splitTransTokens trans
-        stateOuts s = V.fromList . map (pred . fst) . tail . M.vecToAssocList $ M.row mainTrans s
+  where stateIxs = V.fromList [1 .. nStates trans]
+        (_, mainTrans, _, _) = splitTransTokens trans
+        stateOuts s = V.fromList . map fst . tail . M.vecToAssocList $ M.row mainTrans s
 
 graphNPaths :: Int
             -> V.Vector Int
@@ -67,7 +106,6 @@ graphNPaths n stateIxs stateOuts = V.map V.fromList . V.fromList . nub $ concatM
 
 
 {-
-
         prob from to = mainTrans M.# (from + 1, to + 1)
         pathProb = fst
                    . V.foldl1 (\(p, prev) (_, next) -> (p * prob prev next, next))

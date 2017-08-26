@@ -40,7 +40,6 @@ geometricArbitraryConstructor p = (const (0.60 * p) <$>) <$>
   frequency [ (round (p * 1000),       arbitraryBranchConstructor)
             , (round ((1 - p) * 1000), arbitraryLeafConstructor)]
 
-
 arbitraryBranchConstructor :: (Arbitrary s) => Gen (Constructor (Tree s) ())
 arbitraryBranchConstructor = oneof $
   [
@@ -50,7 +49,7 @@ arbitraryBranchConstructor = oneof $
   , arbitraryPossibly
   , arbitraryFiniteDistOver
   , arbitraryReverseSequence
-  --, arbitraryCollapse
+  , arbitraryCollapse
   --, arbitraryUniformDistOver
   --, arbitraryFiniteDistRepeat
   --, arbitraryUniformDistRepeat
@@ -133,10 +132,8 @@ arbitraryReverseSequence ::
 arbitraryReverseSequence = do
   return (ReverseSequence ())
 
--- s needs to either be a fully recursive structure or a list with a delimiter and bookends, like (,,,,)
 arbitraryCollapse ::
   Arbitrary s => Gen (Constructor (Tree s) ())
 arbitraryCollapse = do
   n <- choose (1, 4)
   return (Collapse treeToVec vecToTree n ())
-

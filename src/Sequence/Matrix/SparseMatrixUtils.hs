@@ -4,6 +4,7 @@ import qualified Math.LinearAlgebra.Sparse as M
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Sequence.Matrix.Types
+import Data.Foldable
 
 {-
 inverse :: M.SparseMatrix Double -> M.SparseMatrix Double
@@ -20,7 +21,9 @@ buildMatrix :: (Num a, Eq a)
             => (M.Index, M.Index)
             -> ((M.Index, M.Index) -> a)
             -> M.SparseMatrix a
-buildMatrix size f = mapWithIxs (\ix _ -> f ix) (M.zeroMx size)
+buildMatrix (nr, nc) f = M.sparseMx [[ f (r, c)
+                                     | c <- [1..nc]]
+                                    | r <- [1..nr]]
 
 mapWithIxs :: (Num a, Eq a) => ((M.Index, M.Index) -> a -> a) -> M.SparseMatrix a -> M.SparseMatrix a
 mapWithIxs fn = M.fromAssocList . map (\(ixs, a) -> (ixs, fn ixs a)) . M.toAssocList
@@ -119,11 +122,11 @@ allCols = allRows . M.trans
 allRows :: (Eq a, Num a) => M.SparseMatrix a -> [M.SparseVector a]
 allRows = allElems . M.rows
 
-listToVec :: (Eq a, Num a) => [a] -> M.SparseVector a
-listToVec = M.vecFromAssocList . zip [1..]
+toVec :: (Eq a, Num a, Foldable f) => f a -> M.SparseVector a
+toVec = M.vecFromAssocList . (\l -> if null l then [(0,0)] else l) . zip [1..] . toList
 
 mapRows :: (Eq a, Num a) => (M.SparseVector a -> M.SparseVector a) -> M.SparseMatrix a -> M.SparseMatrix a
-mapRows f = M.fromRows . listToVec . map f . allRows
+mapRows f = M.fromRows . toVec . map f . allRows
   --where rows = f <$> allRows m
         --maxLen = maximum (M.dim <$> rows)
 {-

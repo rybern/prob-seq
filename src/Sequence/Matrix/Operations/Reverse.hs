@@ -18,12 +18,10 @@ import qualified Data.Map as Map
 
 reverseSequence :: MatSeq s -> MatSeq s
 reverseSequence s = s {
-    trans = trans'
+    trans = joinTransTokens (mainStart', mainTrans', endsStart, endsTrans')
   }
   where squareTrans = collapseEnds $ trans s
         (mainStart, mainTrans, endsStart, endsTrans) = splitTransTokens squareTrans
         mainStart' = M.col endsTrans 1
         mainTrans' = M.trans mainTrans
         endsTrans' = fromCols [mainStart]
-
-        trans' = joinTransTokens (mainStart', mainTrans', endsStart, endsTrans')
