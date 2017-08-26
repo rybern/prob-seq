@@ -14,6 +14,7 @@ module Sequence.Matrix.Operations
   , filterUnreachableStates
   , nStates
   , reachableSkips
+  , insert
   ) where
 
 import Sequence.Matrix.Operations.AndThen

@@ -16,10 +16,11 @@ import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-afterState :: MatSeq s -> MatSeq s -> Int -> MatSeq s
-afterState seqA delim ix = undefined
+insert :: MatSeq s -> Int -> MatSeq s -> MatSeq s
+insert seq ix delim = seq
 
 
 {-
 (delete, insert, mutate, slips, etc) -> intersperse -> insertAfterState :: MatSeq -> MatSeq -> Int -> MatSeq
 -}
+

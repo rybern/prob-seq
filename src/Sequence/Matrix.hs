@@ -20,6 +20,7 @@ buildCoreConstructor (CAndThen s1 s2) = andThen s1 s2
 buildCoreConstructor (CGeometricRepeat p s) = geometricRepeat p s
 buildCoreConstructor (CReverseSequence s) = reverseSequence s
 buildCoreConstructor (CCollapse f n s) = collapse f n s
+buildCoreConstructor (CInsert a ix b) = insert a ix b
 
 buildConstructor :: (Eq s) => Constructor s (MatSeq s) -> MatSeq s
 buildConstructor = filterUnreachableStates . cata buildCoreConstructor . toCore

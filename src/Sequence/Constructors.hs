@@ -23,6 +23,7 @@ data Constructor s t =
   | ReverseSequence t
   | Collapse (s -> Vector s) (Vector s -> s) Int t
   | SkipDist [Prob] t
+  | Insert t Int t
   deriving (Functor, Foldable, Traversable)
 
 -- should maybe write these for core constructors instead
@@ -42,7 +43,7 @@ instance (Show s, Show t) => Show (Constructor s t) where
   show (ReverseSequence a) = "reverse(" ++ show a ++ ")"
   show (Collapse _ _ n a) = "collapse(" ++ show n ++ ", " ++ show a ++ ")"
   show (SkipDist ps a) = "<skip[" ++ show ps ++ "], " ++ show a ++ ">"
-
+  show (Insert a ix b) = "insert( " ++ show a ++ ", " ++ show ix ++ ", " ++ show b ++ ")"
 
 
 type ProbSeq s = Fix (Constructor s)

@@ -24,6 +24,7 @@ data CoreConstructor' a s t =
   | CReverseSequence t
   | CCollapse (Vector s -> s) Int t
   | CGeometricRepeat Prob t
+  | CInsert t Int t
   | CId a
   deriving (Functor)
 
@@ -66,3 +67,4 @@ toCore (UniformDistRepeat n s) =
 toCore (FiniteDistRepeat [] _) = constrToCore $ CEmptySequence
 toCore (FiniteDistRepeat (p:ps) a) = constrToCore $ CAndThen (Possibly (1-p) a) (FiniteDistRepeat ps a)
 toCore (Possibly p a) = Fix $ CEitherOr p (cid a) (Fix $ CEmptySequence)
+toCore (Insert a ix b) = Fix $ CInsert (cid b) ix (cid b)
