@@ -18,11 +18,20 @@ import qualified Data.Map as Map
 
 import Sequence.Matrix.Operations.AndThen
 
+-- WOULD TESTING BE WAY EASIER AFTER IMPLEMENTING STATE TAGS?
+
+
 -- what if the state points to itself, and the delim has skips? it could loop to itself, like geometricRepeat
   -- One cheap way to avoid this is to use the original distribution for looping back - but it's not pretty. That would mean skip 0 ends can then restart the delim, but skip 1 couldn't, so skip doesn't behave as normally defined
 -- to summarize: a dist that skips won't work as expected with a stationary state
 
 -- the 'end' of the delim represents returning control to the original. does that mean you can never insert a chance of ending the sequence? how limiting is that?
+
+-- test by adding a specific test case for inserting at various points to make it easier.
+-- examples:
+  -- insert a 0 b = andThen a b
+  -- insert a (length a) b = andThen b a
+  -- do an insert where the label sets of seq and delim are different, so that it's clear where the split is (don't have to worry about empty delim, it's all the same probability)
 insert :: MatSeq s -> Int -> MatSeq s -> MatSeq s
 insert seq 0 delim = delim `andThen` seq
 insert seq ix delim =
@@ -44,10 +53,10 @@ insert seq ix delim =
 
         -- weighted sum of convolving delimEnds with each target, in unexpanded seq
         -- how to deal with ends?
-        translateDelimEnds delimEnds = distributeEndDistAtState (trans seq) ix stateRowMain
+        translateDelimEnds = distributeEndDistAtState (trans seq) ix
 
         stateProbNotEnd = (1 -) . sum $ M.row seqEnds (ix + 1)
-        stateRowMain' =  translateDelimEnds delimEndsStart <> ((stateProbNotEnd *) <$> delimMainStart)
+        stateRowMain' = translateDelimEnds delimEndsStart <> ((stateProbNotEnd *) <$> delimMainStart)
 
         expSeqMain' = M.replaceRow stateRowMain' (ix + 1) expSeqMain
 
