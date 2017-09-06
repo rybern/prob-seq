@@ -24,6 +24,7 @@ import Sequence.Matrix.Operations.AndThen
 -- what if the state points to itself, and the delim has skips? it could loop to itself, like geometricRepeat
   -- One cheap way to avoid this is to use the original distribution for looping back - but it's not pretty. That would mean skip 0 ends can then restart the delim, but skip 1 couldn't, so skip doesn't behave as normally defined
 -- to summarize: a dist that skips won't work as expected with a stationary state
+-- one workaround is to do it iteratively somehow. if you did it iteratively, you'd only need to do it a maximum number of times of the maximum skip
 
 -- the 'end' of the delim represents returning control to the original. does that mean you can never insert a chance of ending the sequence? how limiting is that?
 
