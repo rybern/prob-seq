@@ -5,6 +5,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Sequence.Matrix.Types
 import Data.Foldable
+import Data.List (partition)
 
 {-
 inverse :: M.SparseMatrix Double -> M.SparseMatrix Double
@@ -102,7 +103,13 @@ splitRowsAt :: (Eq a, Fractional a) => M.Index -> M.SparseMatrix a -> (M.SparseM
 splitRowsAt ix = (\(a, b) -> (M.fromRows a, M.fromRows b)) . splitAt ix . allRows
 
 splitColsAt :: (Eq a, Fractional a) => M.Index -> M.SparseMatrix a -> (M.SparseMatrix a, M.SparseMatrix a)
-splitColsAt ix = (\(a, b) -> (M.trans a, M.trans b)) . splitRowsAt ix . M.trans
+splitColsAt ix m = ( if ix == 0
+                     then M.emptyMx
+                     else foldl' (\m c -> M.delCol c m) m (reverse rightCols)
+                          -- M.setSize (M.height m, min ix (M.width m)) m
+                   , fromCols (map (M.col m) rightCols)
+                   )
+  where rightCols = [ix + 1 .. M.width m]
 
 fromCols :: (Eq a, Num a, Foldable f) => f (M.SparseVector a) -> M.SparseMatrix a
 fromCols = M.trans . M.fromRows

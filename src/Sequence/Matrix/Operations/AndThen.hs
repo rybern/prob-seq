@@ -34,6 +34,11 @@ andThen seqA seqB = MatSeq {
         lowerLeft = M.zeroMx (M.height nonstartB, M.width mainA)
         trans' = M.blockMx [ [mainA, setWidth rightLen transition]
                            , [lowerLeft, setWidth rightLen nonstartB] ]
+        --trans' = M.vconcat [ mainA `happend` setWidth rightLen transition
+                           --, lowerLeft `happend` setWidth rightLen nonstartB ]
+
+happend :: (Num s, Eq s) => M.SparseMatrix s -> M.SparseMatrix s -> M.SparseMatrix s
+happend a b = M.fromRows $ M.unionVecsWith mappend (M.rows a) (M.rows b)
 
 instance Monoid (MatSeq a) where
   mappend a b = a `andThen` b
@@ -41,6 +46,33 @@ instance Monoid (MatSeq a) where
 
 {- STATE STEPPING -}
 
+distributeEnds :: Trans -> Trans -> Trans
+distributeEnds transTo transFrom = trimZeroCols . mapRows (transStepDist steps) $ transFrom
+  where steps = transSteps transTo
+
+transStepDist :: [Dist] -> Dist -> Dist
+transStepDist steps dist = sum $ (\(ix, p) -> (p *) <$> getStep ix) <$> M.vecToAssocList dist
+  where getStep 0 = let len = (M.dim (head steps)) in onehotVector len len
+        getStep n = steps !! (n - 1)
+
+transSteps :: Trans -> [Dist]
+transSteps m = map (`M.row` 1) $ iterate (`transStep` m) $ m
+
+transStep :: Trans -> Trans -> Trans
+transStep m1 m2 = removeEndTransitions (m1' `M.mul` m2', max r1 r2)
+  where maxEnds = max (nEnds m1) (nEnds m2)
+        (m1', r1) = addEndTransitions maxEnds m1
+        (m2', r2) = addEndTransitions maxEnds m2
+
+addEndTransitions :: Int -> Trans -> (Trans, Int)
+addEndTransitions minEnds m = (M.vconcat [addStartColumn $ m, endTransitions], r)
+  where (r, c) = M.dims m
+        (_, endTransitions) = splitRowsAt r $ forwardDiagonal (r + max (nEnds m) minEnds)
+
+removeEndTransitions :: (Trans, Int) -> Trans
+removeEndTransitions (m, r) = trimZeroCols . M.delCol 1 . fst $ splitRowsAt r m
+
+{-
 distributeEnds :: Trans -> Trans -> Trans
 distributeEnds trans = trimZeroCols . mapRows (distributeEndDist trans)
 
@@ -67,3 +99,4 @@ addEndTransitions minEnds m = (M.vconcat [addStartColumn $ m, endTransitions], r
 
 removeEndTransitions :: (Trans, Int) -> Trans
 removeEndTransitions (m, r) = trimZeroCols . M.delCol 1 . fst $ splitRowsAt r m
+-}

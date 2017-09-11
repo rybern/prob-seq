@@ -41,7 +41,7 @@ writeSeqToFile t extension fp seq = withFile (fp ++ "." ++ extension) WriteMode 
   -- write matrix lines
   mapM_ (hPutStrLn h) . map showElem . tail . M.toAssocList $ matrix
   where matrix = t seq
-        showElem ((r, c), val) = show (pred r) ++ " " ++ show (pred c) ++ " " ++ show val
+        showElem ((r, c), val) = show (pred r) ++ " " ++ show (pred c) ++ " " ++ show (fromRational val :: Double)
         fp' = if takeExtension fp == extension
               then fp
               else fp `addExtension` extension

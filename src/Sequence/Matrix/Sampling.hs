@@ -46,6 +46,7 @@ sampleTrans sample m = V.fromList . reverse <$> iterateUntilM
 stepSequence :: (MonadRandom m) => (M.SparseVector Prob -> m Int) -> Trans -> Int -> m Int
 stepSequence sample m ix = sample $ M.row m ix
 
+--sometimes samples things with zero probability!
 vecUniformDist :: (MonadRandom m) => M.SparseVector Prob -> m Int
 vecUniformDist v = fromList . map (\(ix, p) -> (ix, uniform)) $ assocs
   where assocs = tail . M.vecToAssocList $ v
