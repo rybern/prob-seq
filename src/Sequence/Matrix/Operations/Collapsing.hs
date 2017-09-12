@@ -35,7 +35,7 @@ collapse :: (Eq a) => (Vector a -> a) -> Int -> MatSeq a -> MatSeq a
 collapse concatLabels n seq = --traceShow (V.length (stateLabels seq), (trans seq), n, "trans'", trans', tuples) $
   MatSeq {
     trans = if M.isZeroMx trans' then M.sparseMx [[1]] else trans'
-  , stateLabels = V.map concatLabels stateTuples
+  , stateLabels = V.map (\(V.unzip -> (s, t)) -> (concatLabels s, StateTag 0 (V.toList t))) stateTuples
   }
   where (main, ends) = splitEnds (trans seq)
         squareMain = addStartColumn main

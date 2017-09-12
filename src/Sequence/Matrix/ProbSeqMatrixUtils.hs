@@ -5,6 +5,7 @@ import Sequence.Matrix.SparseMatrixUtils
 import Sequence.Matrix.Types
 import Sequence.Matrix.SparseMatrixUtils
 import qualified Data.Vector as V
+import Data.Vector (Vector)
 
 getNormalTrans :: MatSeq s -> Trans
 getNormalTrans = addFixedEndRow . addStartColumn . collapseEnds . trans
@@ -51,7 +52,11 @@ forwardDiagonal :: (Eq a, Num a) => Int -> M.SparseMatrix a
 forwardDiagonal n = M.delRow 1 . M.idMx . succ $ n
 
 mapStates :: (a -> b) -> MatSeq a -> MatSeq b
-mapStates f seq = seq {stateLabels = V.map f (stateLabels seq)}
+mapStates f seq = seq {stateLabels = V.map (\(a, ts) -> (f a, ts)) (stateLabels seq)}
+
+
+appendLabel :: Int -> Vector (a, StateTag) -> Vector (a, StateTag)
+appendLabel label = V.map (\(s, ts) -> (s, StateTag label [ts]))
 
 reachableSkips :: Trans -> [Int]
 reachableSkips m = map fst . filter snd . zip [0..] . map M.isNotZeroVec . drop (nStates m) . allCols $ m

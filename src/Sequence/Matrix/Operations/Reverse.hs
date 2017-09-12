@@ -19,6 +19,7 @@ import qualified Data.Map as Map
 reverseSequence :: MatSeq s -> MatSeq s
 reverseSequence s = s {
     trans = joinTransTokens (mainStart', mainTrans', endsStart, endsTrans')
+  , stateLabels = appendLabel 0 $ stateLabels s
   }
   where squareTrans = collapseEnds $ trans s
         (mainStart, mainTrans, endsStart, endsTrans) = splitTransTokens squareTrans

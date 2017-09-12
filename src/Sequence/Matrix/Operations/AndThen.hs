@@ -23,7 +23,7 @@ andThen seqA seqB = MatSeq {
     trans = trans'
   , stateLabels = stateLabels'
   }
-  where stateLabels' = stateLabels seqA <> stateLabels seqB
+  where stateLabels' = appendLabel 0 (stateLabels seqA) <> appendLabel 1 (stateLabels seqB)
 
         transA = trans seqA
         transB = trans seqB

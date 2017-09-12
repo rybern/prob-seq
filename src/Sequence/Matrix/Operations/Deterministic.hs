@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedLists #-}
 module Sequence.Matrix.Operations.Deterministic where
 
 import Sequence.Matrix.Types
@@ -33,5 +34,5 @@ skip n = MatSeq {
 deterministicSequence :: V.Vector s -> MatSeq s
 deterministicSequence states = MatSeq {
     trans = M.idMx (V.length states + 1)
-  , stateLabels = states
+  , stateLabels = V.imap (\ix s -> (s, StateTag ix [])) states
   }

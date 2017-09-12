@@ -23,7 +23,7 @@ eitherOr p a b = MatSeq {
     trans = joinTransTokens (start, mainTrans, startEnds, ends)
   , stateLabels = stateLabels'
   }
-  where stateLabels' = stateLabels a <> stateLabels b
+  where stateLabels' = appendLabel 0 (stateLabels a) <> appendLabel 1 (stateLabels b)
 
         (startA, mainTransA, startEndsA, endTransA) = splitTransTokens $ trans a
         (startB, mainTransB, startEndsB, endTransB) = splitTransTokens $ trans b

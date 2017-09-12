@@ -4,6 +4,7 @@ module Sequence.Matrix.Types
   , MatSeq (..)
   , Dist (..)
   , Trans (..)
+  , StateTag (..)
   ) where
 
 import Sequence.Types
@@ -13,10 +14,13 @@ import qualified Math.LinearAlgebra.Sparse as M
 type Dist = M.SparseVector Prob
 type Trans = M.SparseMatrix Prob
 
+data StateTag = StateTag Int [StateTag]
+  deriving (Show, Eq)
+
 -- First and last rows/cols of the trans matrix are start and end
 data MatSeq s = MatSeq {
     trans :: Trans
-  , stateLabels :: V.Vector s
+  , stateLabels :: V.Vector (s, StateTag)
   } deriving Show
 
 instance (Eq s) => Eq (MatSeq s) where
