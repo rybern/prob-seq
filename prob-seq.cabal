@@ -57,6 +57,8 @@ library
                      , either
                      , QuickCheck
                      , split
+                     , attoparsec
+                     , text
 
 test-suite prob-seq-test
   type:                exitcode-stdio-1.0
