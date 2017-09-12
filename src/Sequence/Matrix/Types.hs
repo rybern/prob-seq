@@ -15,7 +15,7 @@ type Dist = M.SparseVector Prob
 type Trans = M.SparseMatrix Prob
 
 data StateTag = StateTag Int [StateTag]
-  deriving (Show, Eq)
+  deriving (Show, Read, Eq)
 
 -- First and last rows/cols of the trans matrix are start and end
 data MatSeq s = MatSeq {
