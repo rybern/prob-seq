@@ -22,12 +22,7 @@ import Sequence.Matrix.Sampling as X
 
 import Sequence.Matrix.Emissions as X
 
-import Sequence.Matrix.IO.TransMatrix as X
-  ( writeSTFile
-  , writeSTPFile
-  , readSTFile
-  , readSTPFile
-  )
+import Sequence.Matrix.IO as X
 
 import Data.Fix as X
   ( Fix (..)

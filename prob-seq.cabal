@@ -29,7 +29,7 @@ library
                      , Sequence.Matrix
                      , Sequence.Matrix.Sampling
                      , Sequence.Matrix.Emissions
-                     , Sequence.Matrix.IO.TransMatrix
+                     , Sequence.Matrix.IO
                      , Sequence.Matrix.Operations
                      , Sequence.Matrix.Operations.AndThen
                      , Sequence.Matrix.Operations.Collapsing
@@ -43,6 +43,10 @@ library
                      , Sequence.Matrix.Types
                      , Sequence.Types
   other-modules:       Sequence.CoreConstructors
+                     , Sequence.Matrix.IO.Write
+                     , Sequence.Matrix.IO.Read
+                     , Sequence.Matrix.IO.StateLabels
+                     , Sequence.Matrix.IO.TransMatrix
                      , Sequence.Matrix.ProbSeqMatrixUtils
                      , Sequence.Matrix.SparseMatrixUtils
   default-language:    Haskell2010

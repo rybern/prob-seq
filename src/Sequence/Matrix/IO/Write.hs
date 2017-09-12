@@ -9,12 +9,15 @@ import Data.Monoid ((<>))
 import Sequence.Matrix.IO.TransMatrix
 import Sequence.Matrix.IO.StateLabels
 
-writeMatSeq :: (MatSeq String -> Trans)
-            -> MatSeq String
-            -> FilePath
-            -> IO ()
-writeMatSeq trans seq fp = Text.writeFile fp txt
-  where txt = Text.unlines $ showMatSeq trans seq
+writeMatSeqFile :: (Trans -> Trans)
+                -> MatSeq String
+                -> FilePath
+                -> IO ()
+writeMatSeqFile f seq fp = Text.writeFile fp txt
+  where txt = Text.unlines $ showMatSeq f seq
 
-showMatSeq :: (MatSeq String -> Trans) -> MatSeq String -> [Text]
-showMatSeq trans seq = showStateLabels (stateLabels seq) <> showTrans (trans seq)
+writeMatSeq :: (Trans -> Trans) -> MatSeq String -> Text
+writeMatSeq f = Text.unlines . showMatSeq f
+
+showMatSeq :: (Trans -> Trans) -> MatSeq String -> [Text]
+showMatSeq f seq = showStateLabels (stateLabels seq) <> showTrans (f $ trans seq)

@@ -35,7 +35,7 @@ writeSequence n = do
   let seq = lengthSeq n
       matSeq = buildMatSeq seq
 
-  writeSTFile "test" matSeq
+  writeSTFile matSeq "test"
 
 sampleSequence :: Int -> IO ()
 sampleSequence n = do
@@ -54,22 +54,22 @@ c a = Fix $ DeterministicSequence (V.fromList a)
 sample :: (Eq a) => ProbSeq a -> IO (Vector a, Int)
 sample = randToIO . sampleSeq vecDist . buildMatSeq
 
-lengthSeq :: Int -> ProbSeq Char
+lengthSeq :: Int -> ProbSeq String
 lengthSeq n = seqLength n (uniformNT)
 
 seqLength :: Int -> ProbSeq s -> ProbSeq s
 seqLength n p = foldl1 (\a b -> Fix $ AndThen a b) $ replicate n p
 
-uniformSeq :: Int -> ProbSeq Char
+uniformSeq :: Int -> ProbSeq String
 uniformSeq n = seqUniformLength n (n + 1) elementary
 
-elementary :: ProbSeq Char
+elementary :: ProbSeq String
 elementary = Fix $ AndThen
   (seqLength 5 uniformNT)
   (Fix $ UniformDistRepeat 4 (Fix $ Skip 1))
 
-uniformNT :: ProbSeq Char
-uniformNT = (Fix . UniformDistOver . map (Fix . DeterministicSequence . V.fromList) $ ["G", "A", "T", "C"])
+uniformNT :: ProbSeq String
+uniformNT = (Fix . UniformDistOver . map (Fix . DeterministicSequence . V.singleton) $ ["G", "A", "T", "C"])
 
 seqUniformLength :: Int -> Int -> ProbSeq s -> ProbSeq s
 seqUniformLength min max s = Fix $ FiniteDistRepeat dist s
