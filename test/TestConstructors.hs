@@ -6,6 +6,7 @@ import Data.Monoid
 import Data.List (find)
 import Control.Monad
 import qualified Data.Vector as V
+import qualified Math.LinearAlgebra.Sparse as M
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
@@ -18,8 +19,6 @@ import ArbitraryConstructors
 import TestAST
 
 -- Add test to make sure that all rows of randomly generated ProbSeq -> MatSeq sum to 1
--- Also, instead of removing unreachable states after every call to buildMatrix, call it only on operations that might leave unreachable states, like collapse and skip
-
 
 operationTests = testGroup "Operations"
   [
@@ -64,8 +63,10 @@ aproxEq a b = (a - eps) < b && b < (a + eps)
 seriesDistributesPropTest = testProperty "andThen distributes over <>" seriesDistributesProp
 seriesDistributesProp :: V.Vector Word8 -> V.Vector Word8 -> Bool
 seriesDistributesProp s1 s2 =
-  (build $ DeterministicSequence s1) <> (build $ DeterministicSequence s2) == (build $ DeterministicSequence (s1 <> s2))
+  elems ((build $ DeterministicSequence s1) <> (build $ DeterministicSequence s2)) ==
+  elems (build $ DeterministicSequence (s1 <> s2))
   where build = buildMatSeq . Fix
+        elems = M.toAssocList . trans
 
 deterministicIsConstantPropTest = testProperty "deterministicSequence . sampleSeq == id" $
   \v -> ioProperty $ deterministicIsConstantProp v
