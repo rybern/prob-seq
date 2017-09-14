@@ -14,15 +14,18 @@ data Constructor s t =
   | MatrixForm (MatSeq s)
   | EitherOr Prob t t
   | AndThen t t
+  | GeometricRepeat Prob t
+  | ReverseSequence t
+  | Collapse (s -> Vector s) (Vector s -> s) Int t
+
   | Possibly Prob t
   | UniformDistOver [t]
   | FiniteDistOver [(t, Prob)]
-  | GeometricRepeat Prob t
   | FiniteDistRepeat [Prob] t
   | UniformDistRepeat Int t
-  | ReverseSequence t
-  | Collapse (s -> Vector s) (Vector s -> s) Int t
   | SkipDist [Prob] t
+  | Series [t]
+  | Repeat Int t
   deriving (Functor, Foldable, Traversable)
 
 -- should maybe write these for core constructors instead
@@ -42,8 +45,8 @@ instance (Show s, Show t) => Show (Constructor s t) where
   show (ReverseSequence a) = "reverse(" ++ show a ++ ")"
   show (Collapse _ _ n a) = "collapse(" ++ show n ++ ", " ++ show a ++ ")"
   show (SkipDist ps a) = "<skip[" ++ show ps ++ "], " ++ show a ++ ">"
-
-
+  show (Series as) = "<" ++ intercalate ", " (map show as) ++ ">"
+  show (Repeat n a) = "<" ++ show a ++ "[" ++ show n ++ "]" ++ ">"
 
 type ProbSeq s = Fix (Constructor s)
 

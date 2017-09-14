@@ -37,6 +37,9 @@ andThen seqA seqB = MatSeq {
         --trans' = M.vconcat [ mainA `happend` setWidth rightLen transition
                            --, lowerLeft `happend` setWidth rightLen nonstartB ]
 
+test' = skip 1 `andThen` emptySequence
+test = trans emptySequence `distributeEnds` trans (skip 1)
+
 happend :: (Num s, Eq s) => M.SparseMatrix s -> M.SparseMatrix s -> M.SparseMatrix s
 happend a b = M.fromRows $ M.unionVecsWith mappend (M.rows a) (M.rows b)
 

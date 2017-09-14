@@ -9,6 +9,8 @@ import Sequence.Matrix.Types
 import Sequence.Matrix.Operations
 import Data.Fix
 
+import Control.Parallel.Strategies
+
 buildCoreConstructor :: (Eq s) => CoreConstructor s (MatSeq s) -> MatSeq s
 buildCoreConstructor CEmptySequence = emptySequence
 buildCoreConstructor (CDeterministicSequence v) = deterministicSequence v
@@ -26,11 +28,28 @@ buildConstructor :: (Eq s) => Constructor s (MatSeq s) -> MatSeq s
 buildConstructor = cata buildCoreConstructor . toCore
 
 buildMatSeq :: (Eq s) => ProbSeq s -> MatSeq s
-buildMatSeq = filterUnreachableStates . cata buildConstructor
+buildMatSeq = filterUnreachableStates . cata (buildConstructor $| parTraversable rpar)
+
+
+buildMatSeq' :: (Eq s) => ProbSeq s -> MatSeq s
+buildMatSeq' = filterUnreachableStates . cata buildConstructor
+
+buildMatSeq'' :: (Eq s) => ProbSeq s -> MatSeq s
+buildMatSeq'' seq = filterUnreachableStates . with . unFix . unProbSeqWith $ matSeqTree
+  where matSeqTree = buildMatSeqTreeUnfiltered seq `using` parMatSeqTreeStrategy
+  --where matSeqTree = (withStrategy rpar) <$> buildMatSeqTreeUnfiltered seq
+  --where matSeqTree = buildMatSeqTreeUnfiltered seq `using` parMatSeqTreeStrategy
+
+parMatSeqTreeStrategy :: Strategy (ProbSeqWith s (MatSeq s))
+parMatSeqTreeStrategy = parTraversable (rseq `dot` rpar)
 
 buildMatSeqTree :: (Eq s) => ProbSeq s -> ProbSeqWith s (MatSeq s)
-buildMatSeqTree = ProbSeqWith . Fix . cata (\constr -> ConstructorWith {
-                                                 with =
-                                                     filterUnreachableStates $ buildConstructor (with <$> constr)
-                                               , constructor = Fix <$> constr
-                                               } )
+buildMatSeqTree = fmap filterUnreachableStates . buildMatSeqTreeUnfiltered
+
+buildMatSeqTreeUnfiltered :: (Eq s) => ProbSeq s -> ProbSeqWith s (MatSeq s)
+buildMatSeqTreeUnfiltered =
+  ProbSeqWith . Fix . cata (\constr -> ConstructorWith {
+                               with =
+                                   filterUnreachableStates $ buildConstructor (with <$> constr)
+                               , constructor = Fix <$> constr
+                               } )

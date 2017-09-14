@@ -19,10 +19,13 @@ type Extension = String
 
 writeExtensionFile :: Extension
                    -> (Trans -> Trans)
+                   -> HideLabels
+                   -> DecimalProb
                    -> MatSeq String
                    -> FilePath
                    -> IO ()
-writeExtensionFile ext f seq fp = writeMatSeqFile f seq (maybeAddExtension ext fp)
+writeExtensionFile ext f hideLabels decimalProbs seq fp =
+  writeMatSeqFile f hideLabels decimalProbs seq (maybeAddExtension ext fp)
 
 maybeAddExtension :: Extension -> FilePath -> FilePath
 maybeAddExtension extension fp =
@@ -39,7 +42,7 @@ readSTPFile = readMatSeqFile id
 writeSTPFile :: MatSeq String
             -> FilePath
             -> IO ()
-writeSTPFile = writeExtensionFile ".stp" id
+writeSTPFile = writeExtensionFile ".stp" id False False
 
 {- ST Files -}
 
@@ -53,7 +56,7 @@ unCleanTrans t = (snd . M.popRow (M.height t) $ t)
 writeSTFile :: MatSeq String
             -> FilePath
             -> IO ()
-writeSTFile = writeExtensionFile ".st" cleanTrans
+writeSTFile = writeExtensionFile ".st" cleanTrans False True
 
 cleanTrans :: Trans -> Trans
-cleanTrans = addFixedEndRow . collapseEnds
+cleanTrans = addStartColumn . collapseEnds

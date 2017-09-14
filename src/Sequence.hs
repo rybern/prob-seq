@@ -24,6 +24,10 @@ import Sequence.Matrix.Emissions as X
 
 import Sequence.Matrix.IO as X
 
+import Sequence.Matrix.ProbSeqMatrixUtils as X
+  ( mapStates
+  )
+
 import Data.Fix as X
   ( Fix (..)
   )

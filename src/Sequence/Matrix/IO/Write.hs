@@ -1,4 +1,11 @@
-module Sequence.Matrix.IO.Write where
+module Sequence.Matrix.IO.Write
+  ( HideLabels (..)
+  , DecimalProb (..)
+  , writeMatSeqFile
+  , writeMatSeq
+  , showMatSeq
+  )
+where
 
 import Sequence.Matrix.Types
 import Data.Text (Text)
@@ -9,15 +16,28 @@ import Data.Monoid ((<>))
 import Sequence.Matrix.IO.TransMatrix
 import Sequence.Matrix.IO.StateLabels
 
+type HideLabels = Bool
+
 writeMatSeqFile :: (Trans -> Trans)
+                -> HideLabels
+                -> DecimalProb
                 -> MatSeq String
                 -> FilePath
                 -> IO ()
-writeMatSeqFile f seq fp = Text.writeFile fp txt
-  where txt = Text.unlines $ showMatSeq f seq
+writeMatSeqFile f hideLabels decimalProbs seq fp = Text.writeFile fp txt
+  where txt = Text.unlines $ showMatSeq f hideLabels decimalProbs seq
 
-writeMatSeq :: (Trans -> Trans) -> MatSeq String -> Text
-writeMatSeq f = Text.unlines . showMatSeq f
+writeMatSeq :: (Trans -> Trans)
+            -> HideLabels
+            -> DecimalProb
+            -> MatSeq String
+            -> Text
+writeMatSeq f hideLabels decimalProbs = Text.unlines . showMatSeq f hideLabels decimalProbs
 
-showMatSeq :: (Trans -> Trans) -> MatSeq String -> [Text]
-showMatSeq f seq = showStateLabels (stateLabels seq) <> showTrans (f $ trans seq)
+showMatSeq :: (Trans -> Trans)
+            -> HideLabels
+            -> DecimalProb
+           -> MatSeq String
+           -> [Text]
+showMatSeq f True decimalProbs seq = showTrans decimalProbs (f $ trans seq)
+showMatSeq f False decimalProbs seq = showStateLabels (stateLabels seq) <> showTrans decimalProbs (f $ trans seq)

@@ -13,13 +13,18 @@ import Data.Text (Text, pack)
 import Data.Attoparsec.Text
 import Data.Ratio ((%))
 
-showTrans :: Trans
+type DecimalProb = Bool
+
+showTrans :: DecimalProb
+          -> Trans
           -> [Text]
-showTrans = map showTriple . M.toAssocList
+showTrans decimals = map showTriple . tail . M.toAssocList
   where showTriple ((r, c), v) = mconcat . intersperse " " $ [
-            pack (show r)
-          , pack (show c)
-          , "(" <> pack (show v) <> ")"
+            pack (show (r - 1))
+          , pack (show (c - 1))
+          , if decimals
+            then pack . show . fromRational $ v
+            else "(" <> pack (show v) <> ")"
           ]
 
 parseTrans :: Parser (Trans)
@@ -32,7 +37,7 @@ parseTransTriple = do
   col <- decimal
   _ <- char ' '
   val <- parseProb
-  return ((row, col), val)
+  return ((row + 1, col + 1), val)
 
 parseProb :: Parser Prob
 parseProb = choice [

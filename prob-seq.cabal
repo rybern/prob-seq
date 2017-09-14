@@ -15,9 +15,19 @@ executable validation
   hs-source-dirs:      validation
   main-is:             Main.hs
   default-language:    Haskell2010
+  other-modules:       EmissionIO
+  ghc-options:
+        -O2
+        -threaded
+        -rtsopts
+        -with-rtsopts=-N4
   build-depends:       base >= 4.7 && < 5
                      , vector
                      , prob-seq
+                     , parallel
+                     , cassava
+                     , bytestring
+                     , process
 
 executable profiling
   hs-source-dirs:      profiling
@@ -69,6 +79,7 @@ library
                      , split
                      , attoparsec
                      , text
+                     , parallel
 
 test-suite prob-seq-test
   type:                exitcode-stdio-1.0

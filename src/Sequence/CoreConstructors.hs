@@ -63,6 +63,18 @@ toCore (FiniteDistOver as) = coreFiniteDistOver . map (\(a, p) -> (cid a, p)) $ 
 toCore (UniformDistRepeat n s) =
   let uniform = recip . fromIntegral . succ $ n
   in toCore $ FiniteDistRepeat (replicate n uniform) s
-toCore (FiniteDistRepeat [] _) = constrToCore $ CEmptySequence
-toCore (FiniteDistRepeat (p:ps) a) = constrToCore $ CAndThen (Possibly (1-p) a) (FiniteDistRepeat ps a)
+toCore (FiniteDistRepeat [] _) = Fix $ CEmptySequence
+toCore (FiniteDistRepeat ps a) =
+  Fix $ CEitherOr p (Fix CEmptySequence) (Fix $ CAndThen (cid a) (toCore $ FiniteDistRepeat rest a))
+  where (p:rest) = normalize ps
 toCore (Possibly p a) = Fix $ CEitherOr p (cid a) (Fix $ CEmptySequence)
+toCore (Series []) = Fix $ CEmptySequence
+toCore (Series [a]) = cid a
+toCore (Series as) = Fix $ CAndThen (toCore (Series leftAs)) (toCore (Series rightAs))
+  where (leftAs, rightAs) = splitAt (length as `div` 2) as
+toCore (Repeat n a) = toCore (Series (replicate n a))
+
+normalize :: (Traversable t) => t Prob -> t Prob
+normalize t = let s = sum t in if s == 0
+                               then (const (1 / fromIntegral (length t))) <$> t
+                               else (/ s) <$> t
