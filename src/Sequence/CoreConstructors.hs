@@ -56,6 +56,7 @@ toCore (Collapse _ f n a1) = Fix $ CCollapse f n (cid a1)
 toCore (SkipDist dist a1) =
   let skipSeq = coreFiniteDistOver $ zip (Fix CEmptySequence : map (Fix . CSkip) [1..]) dist
   in Fix $ CIntersperse skipSeq (cid a1)
+
 toCore (UniformDistOver seqs) =
   let uniform = recip . fromIntegral . length $ seqs
   in toCore $ FiniteDistOver $ map (\seq -> (seq, uniform)) seqs

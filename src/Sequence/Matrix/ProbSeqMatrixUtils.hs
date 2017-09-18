@@ -55,6 +55,15 @@ mapStates :: (a -> b) -> MatSeq a -> MatSeq b
 mapStates f seq = seq {stateLabels = V.map (\(a, ts) -> (f a, ts)) (stateLabels seq)}
 
 
+removeLabelSeq :: MatSeq a -> MatSeq a
+removeLabelSeq seq = seq { stateLabels = removeLabel (stateLabels seq) }
+
+removeLabel :: Vector (a, StateTag) -> Vector (a, StateTag)
+removeLabel = V.map (\(s, StateTag _ (t:_)) -> (s, t))
+
+appendLabelSeq :: Int -> MatSeq a -> MatSeq a
+appendLabelSeq label seq = seq { stateLabels = appendLabel label (stateLabels seq) }
+
 appendLabel :: Int -> Vector (a, StateTag) -> Vector (a, StateTag)
 appendLabel label = V.map (\(s, ts) -> (s, StateTag label [ts]))
 
