@@ -16,20 +16,6 @@ import Control.Monad.State
 
 import Control.Parallel.Strategies
 
-rewriteTags :: (Constructor s (MatSeq s) -> MatSeq s)
-            -> Constructor s (MatSeq s)
-            -> MatSeq s
-rewriteTags f = removeLabelSeq . f . mapIx (\(m, i) -> appendLabelSeq i m)
-
-mapIx :: (Traversable t, Bounded i, Enum i)
-      => ((a, i) -> b) -> t a -> t b
-mapIx f t = flip evalState minBound $ mapM iterator t
-  where iterator a = do
-          ix <- get
-          let b = f (a, ix)
-          put (succ ix)
-          return b
-
 buildConstructor :: (Eq s) => Constructor s (MatSeq s) -> MatSeq s
 buildConstructor EmptySequence = emptySequence
 buildConstructor (DeterministicSequence v) = deterministicSequence v
@@ -44,21 +30,29 @@ buildConstructor (Collapse _ f n a1) = collapse f n a1
 buildConstructor (UniformDistOver seqs) =
   let uniform = recip . fromIntegral . length $ seqs
   in buildConstructor $ FiniteDistOver $ map (\seq -> (seq, uniform)) seqs
-buildConstructor (FiniteDistOver [(a, _)]) = a
-buildConstructor (FiniteDistOver ((a, p) : rest)) = eitherOr p a $
-  buildConstructor (FiniteDistOver $ map (\(a', p') -> (a', p' / (1 - p))) rest)
+buildConstructor (FiniteDistOver pairs) = f . map (\(i, (a, p)) -> (appendLabelSeq i a, p)) . zip [0..] $ pairs
+  where f [(a, _)] = a
+        f ((a, p) : rest) = removeLabelSeq . eitherOr p a $
+          f $ map (\(a', p') -> (a', p' / (1 - p))) rest
 buildConstructor (UniformDistRepeat n s) =
   let uniform = recip . fromIntegral . succ $ n
   in buildConstructor $ FiniteDistRepeat (replicate n uniform) s
-buildConstructor (FiniteDistRepeat [] _) = emptySequence
-buildConstructor (FiniteDistRepeat ps a) =
-  eitherOr p (emptySequence) (andThen a (buildConstructor $ FiniteDistRepeat rest a))
-  where (p:rest) = normalize ps
+buildConstructor (FiniteDistRepeat ps a) = f 0 ps a
+  where f _ [] _ = emptySequence
+        f ix ps a = removeLabelSeq $ eitherOr p
+          emptySequence
+          (removeLabelSeq $ andThen
+            (appendLabelSeq ix a)
+            (f (ix + 1) rest a))
+        (p:rest) = normalize ps
 buildConstructor (Possibly p a) = eitherOr p a emptySequence
-buildConstructor (Series []) = emptySequence
-buildConstructor (Series [a]) = a
-buildConstructor (Series as) = andThen (buildConstructor (Series leftAs)) (buildConstructor (Series rightAs))
-  where (leftAs, rightAs) = splitAt (length as `div` 2) as
+buildConstructor (Series as) = f 0 as
+  where f _ [] = emptySequence
+        f ix [a] = appendLabelSeq ix a
+        f ix as = let (leftAs, rightAs) = splitAt (length as `div` 2) as
+                  in removeLabelSeq $ andThen
+                     (f ix leftAs)
+                     (f (ix + length leftAs) rightAs)
 buildConstructor (Repeat n a) = buildConstructor (Series (replicate n a))
 
 normalize :: (Traversable t) => t Prob -> t Prob
