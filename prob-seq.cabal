@@ -58,7 +58,6 @@ library
                      , Sequence.Matrix.Operations.Reverse
                      , Sequence.Matrix.Types
                      , Sequence.Types
-  other-modules:       Sequence.CoreConstructors
                      , Sequence.Matrix.IO.Write
                      , Sequence.Matrix.IO.Read
                      , Sequence.Matrix.IO.StateLabels
@@ -80,6 +79,7 @@ library
                      , attoparsec
                      , text
                      , parallel
+                     , mtl
 
 test-suite prob-seq-test
   type:                exitcode-stdio-1.0

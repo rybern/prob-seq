@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFunctor, FlexibleContexts #-}
 module Sequence.Matrix ( buildConstructor
                        , buildMatSeqTree
                        , buildMatSeq
@@ -6,13 +6,29 @@ module Sequence.Matrix ( buildConstructor
 
 import Sequence.Constructors
 import Sequence.Matrix.Types
+import Sequence.Matrix.ProbSeqMatrixUtils
 import Sequence.Matrix.Operations
 import Data.Fix
 import Data.Vector (Vector)
 import Sequence.Constructors
 import Unsafe.Coerce
+import Control.Monad.State
 
 import Control.Parallel.Strategies
+
+rewriteTags :: (Constructor s (MatSeq s) -> MatSeq s)
+            -> Constructor s (MatSeq s)
+            -> MatSeq s
+rewriteTags f = removeLabelSeq . f . mapIx (\(m, i) -> appendLabelSeq i m)
+
+mapIx :: (Traversable t, Bounded i, Enum i)
+      => ((a, i) -> b) -> t a -> t b
+mapIx f t = flip evalState minBound $ mapM iterator t
+  where iterator a = do
+          ix <- get
+          let b = f (a, ix)
+          put (succ ix)
+          return b
 
 buildConstructor :: (Eq s) => Constructor s (MatSeq s) -> MatSeq s
 buildConstructor EmptySequence = emptySequence
