@@ -16,6 +16,17 @@ import Control.Monad.State
 
 import Control.Parallel.Strategies
 
+buildMatSeq :: (Eq s) => ProbSeq s -> MatSeq s
+buildMatSeq = filterUnreachableStates . cata (buildConstructor $| parTraversable rpar)
+
+buildMatSeqTree :: (Eq s) => ProbSeq s -> ProbSeqWith s (MatSeq s)
+buildMatSeqTree =
+  ProbSeqWith . Fix . cata (\constr -> ConstructorWith {
+                               with =
+                                   filterUnreachableStates $ buildConstructor (with <$> constr)
+                               , constructor = Fix <$> constr
+                               } )
+
 buildConstructor :: (Eq s) => Constructor s (MatSeq s) -> MatSeq s
 buildConstructor EmptySequence = emptySequence
 buildConstructor (DeterministicSequence v) = deterministicSequence v
@@ -44,7 +55,7 @@ buildConstructor (FiniteDistRepeat ps a) = f 0 ps a
           (removeLabelSeq $ andThen
             (appendLabelSeq ix a)
             (f (ix + 1) rest a))
-        (p:rest) = normalize ps
+          where (p:rest) = normalize ps
 buildConstructor (Possibly p a) = eitherOr p a emptySequence
 buildConstructor (Series as) = f 0 as
   where f _ [] = emptySequence
@@ -59,14 +70,3 @@ normalize :: (Traversable t) => t Prob -> t Prob
 normalize t = let s = sum t in if s == 0
                                then (const (1 / fromIntegral (length t))) <$> t
                                else (/ s) <$> t
-
-buildMatSeq :: (Eq s) => ProbSeq s -> MatSeq s
-buildMatSeq = filterUnreachableStates . cata (buildConstructor $| parTraversable rpar)
-
-buildMatSeqTree :: (Eq s) => ProbSeq s -> ProbSeqWith s (MatSeq s)
-buildMatSeqTree =
-  ProbSeqWith . Fix . cata (\constr -> ConstructorWith {
-                               with =
-                                   filterUnreachableStates $ buildConstructor (with <$> constr)
-                               , constructor = Fix <$> constr
-                               } )
