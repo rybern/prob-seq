@@ -23,7 +23,6 @@ data Constructor s t =
   | FiniteDistOver [(t, Prob)]
   | FiniteDistRepeat [Prob] t
   | UniformDistRepeat Int t
-  | SkipDist [Prob] t
   | Series [t]
   | Repeat Int t
   deriving (Functor, Foldable, Traversable)
@@ -44,7 +43,6 @@ instance (Show s, Show t) => Show (Constructor s t) where
   show (UniformDistRepeat n a) = show a ++ "[0.." ++ show n ++ "]"
   show (ReverseSequence a) = "reverse(" ++ show a ++ ")"
   show (Collapse _ _ n a) = "collapse(" ++ show n ++ ", " ++ show a ++ ")"
-  show (SkipDist ps a) = "<skip[" ++ show ps ++ "], " ++ show a ++ ">"
   show (Series as) = "<" ++ intercalate ", " (map show as) ++ ">"
   show (Repeat n a) = "<" ++ show a ++ "[" ++ show n ++ "]" ++ ">"
 
@@ -83,3 +81,50 @@ mapWith cf (ProbSeqWith (Fix constr)) =
   in ProbSeqWith . Fix $ constr' {
       constructor = (unProbSeqWith . mapWith cf . ProbSeqWith) <$> constructor constr'
     }
+emptySequence :: ProbSeq s
+emptySequence = Fix $ EmptySequence
+
+deterministicSequence :: (Vector s) -> ProbSeq s
+deterministicSequence v = Fix $ DeterministicSequence v
+
+skip :: Int -> ProbSeq s
+skip n = Fix $ Skip n
+
+matrixForm :: (MatSeq s) -> ProbSeq s
+matrixForm m = Fix $ MatrixForm m
+
+eitherOr :: Prob -> ProbSeq s -> ProbSeq s -> ProbSeq s
+eitherOr p a b = Fix $ EitherOr p a b
+
+andThen :: ProbSeq s -> ProbSeq s -> ProbSeq s
+andThen a b = Fix $ AndThen a b
+
+geometricRepeat :: Prob -> ProbSeq s -> ProbSeq s
+geometricRepeat p a = Fix $ GeometricRepeat p a
+
+reverseSequence :: ProbSeq s -> ProbSeq s
+reverseSequence a = Fix $ ReverseSequence a
+
+collapse :: (s -> Vector s) -> (Vector s -> s) -> Int -> ProbSeq s -> ProbSeq s
+collapse f g n a = Fix $ Collapse f g n a
+
+possibly :: Prob -> ProbSeq s -> ProbSeq s
+possibly p a = Fix $ Possibly p a
+
+uniformDistOver :: [ProbSeq s] -> ProbSeq s
+uniformDistOver as = Fix $ UniformDistOver as
+
+finiteDistOver :: [(ProbSeq s, Prob)] -> ProbSeq s
+finiteDistOver pairs = Fix $ FiniteDistOver pairs
+
+uniformDistRepeat :: Int -> ProbSeq s -> ProbSeq s
+uniformDistRepeat n a = Fix $ UniformDistRepeat n a
+
+finiteDistRepeat :: [Prob] -> ProbSeq s -> ProbSeq s
+finiteDistRepeat ps a = Fix $ FiniteDistRepeat ps a
+
+series :: [ProbSeq s] -> ProbSeq s
+series as = Fix $ Series as
+
+repeatSequence :: Int -> ProbSeq s -> ProbSeq s
+repeatSequence n a = Fix $ Repeat n a

@@ -25,12 +25,16 @@ sampleSeqWithProb sample seq = do
   return $ (sample, stateSequenceProbability sample seq)
 
 sampleSeq :: (MonadRandom m) => (M.SparseVector Prob -> m Int) -> MatSeq s -> m (V.Vector s, Int)
-sampleSeq sample seq = do
+sampleSeq sample seq =
+  (\(ixs, endIx) -> (V.map (fst . (stateLabels seq V.!)) ixs, endIx)) <$> sampleSeqIxs sample seq
+
+sampleSeqIxs :: (MonadRandom m) => (M.SparseVector Prob -> m Int) -> MatSeq s -> m (V.Vector Int, Int)
+sampleSeqIxs sample seq = do
   let trans = getNormalTransWithEnds seq
   ixs <- sampleTrans sample trans
   let stateIxs = V.filter (\ix -> ix /= 1 && ix /= V.last ixs) ixs
       endIx = V.last ixs - M.height trans
-  return (V.map (fst . (stateLabels seq V.!) . (\x -> x - 2)) stateIxs, endIx)
+  return (V.map (\x -> x - 2) stateIxs, endIx)
 
 -- this hangs on (ds [a])
 -- The problem is the form of trans, 1 is looping to itself because there's no first column

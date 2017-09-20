@@ -58,10 +58,25 @@ def read_st_file(filepath):
       tuples.append((r, c, val))
     return tuples
 
+def modelIxToStateIx(model, modelIx):
+  try:
+    return int(model.states[modelIx].name)
+  except ValueError:
+    return None
+def statePermutation(model):
+  perm = filter(lambda i: i, map(lambda s: modelIxToStateIx(model, s), range(len(model.states))))
+  #iperm = map(lambda i: perm.index(i + 1), range(len(model.states)))
+
+  iperm = sorted(xrange(len(perm)), key=lambda ix: perm[ix])
+
+  return np.array(perm), np.array(iperm)
+
 def build_emissions_hmm(trans_file = "test.st",
                         emissions_file = "test.csv",
                         posterior_file = None,
-                        viterbi_file = None):
+                        viterbi_file = None,
+                        forward_file = None,
+                        backward_file = None):
   emissions = read_emission_tsv(emissions_file)
 
   n_loci, n_states = emissions.shape
@@ -76,8 +91,11 @@ def build_emissions_hmm(trans_file = "test.st",
 
   path = [i for i in range(n_loci)]
 
+  perm, iperm = statePermutation(model)
   vit = viterbi_seq(model, path)
-  post = posterior_seq(model, path)
+  post = posterior_seq(model, path)[:, iperm]
+  fwd = forward_seq(model, path)
+  bwd = backward_seq(model, path)
 
   if viterbi_file:
     with open(viterbi_file, 'w') as f:
@@ -86,8 +104,22 @@ def build_emissions_hmm(trans_file = "test.st",
   if posterior_file:
     np.savetxt(posterior_file, post, delimiter = ",")
 
+  if forward_file:
+    np.savetxt(forward_file, fwd, delimiter = ",")
+
+  if backward_file:
+    np.savetxt(backward_file, bwd, delimiter = ",")
+
   # model.draw() might be cool, need an additional package
-  return model, emissions, post, vit
+  return model, emissions, post, vit, fwd, bwd
+
+def forward_seq(model, path):
+  emissions = model.forward(path)
+  return math.e ** emissions
+
+def backward_seq(model, path):
+  emissions = model.backward(path)
+  return math.e ** emissions
 
 def posterior_seq(model, path):
   (t, emissions) = model.forward_backward(path)
@@ -97,5 +129,5 @@ def viterbi_seq(model, path):
   v = model.viterbi(path)
   return [int(s[1].name) for s in v[1][1:-1]]
 
-if len(sys.argv) > 4:
-  build_emissions_hmm(*sys.argv[1:5])
+if len(sys.argv) > 2:
+  build_emissions_hmm(*sys.argv[1:])

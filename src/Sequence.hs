@@ -4,16 +4,12 @@ module Sequence
   ) where
 
 import Sequence.Constructors as X
-  ( Constructor (..)
-  , ConstructorWith (..)
-  , mapWith
-  , ProbSeq (..)
-  )
 
 import Sequence.Matrix as X
 
 import Sequence.Matrix.Sampling as X
   ( sampleSeq
+  , sampleSeqIxs
   , sampleSeqWithProb
   , vecUniformDist
   , vecDist

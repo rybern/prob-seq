@@ -28,6 +28,7 @@ executable validation
                      , cassava
                      , bytestring
                      , process
+                     , containers
 
 executable profiling
   hs-source-dirs:      profiling
