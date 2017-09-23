@@ -20,7 +20,7 @@ executable validation
         -O2
         -threaded
         -rtsopts
-        -with-rtsopts=-N4
+        -with-rtsopts=-N
   build-depends:       base >= 4.7 && < 5
                      , vector
                      , prob-seq
