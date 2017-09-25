@@ -11,5 +11,4 @@ flags: {}
 extra-package-dbs: []
 
 nix:
-  enable: true
-  packages: [git, gcc, ncurses, python27Packages.pomegranate]
+  packages: [python27Packages.pomegranate]
