@@ -184,7 +184,7 @@ cycleSeq = andThen
         nEnd = 20
 
 periodSeq :: ProbSeq Int
-periodSeq = series . map (\v -> andThen (deterministicSequence . V.singleton $ v) skipDistSeq) $
+periodSeq = series . map (\v -> andThen (state v) skipDistSeq) $
   [ 2, 1 ]
 
 skipDist :: [Prob]

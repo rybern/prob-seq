@@ -63,16 +63,16 @@ aproxEq a b = (a - eps) < b && b < (a + eps)
 seriesDistributesPropTest = testProperty "andThen distributes over <>" seriesDistributesProp
 seriesDistributesProp :: V.Vector Word8 -> V.Vector Word8 -> Bool
 seriesDistributesProp s1 s2 =
-  elems ((build $ DeterministicSequence s1) <> (build $ DeterministicSequence s2)) ==
-  elems (build $ DeterministicSequence (s1 <> s2))
-  where build = buildMatSeq . Fix
+  elems ((build s1) <> (build s2)) ==
+  elems (build (s1 <> s2))
+  where build = buildMatSeq . series . map state . V.toList
         elems = M.toAssocList . trans
 
 deterministicIsConstantPropTest = testProperty "deterministicSequence . sampleSeq == id" $
   \v -> ioProperty $ deterministicIsConstantProp v
 deterministicIsConstantProp :: V.Vector Word8 -> IO Bool
 deterministicIsConstantProp s1 = do
-  let seq = Fix $ DeterministicSequence s1
+  let seq = series . map state . V.toList $ s1
   samples <- replicateM 10 $ sampleSeq vecUniformDist (buildMatSeq seq)
   return $ all (== (s1, 0)) samples
 

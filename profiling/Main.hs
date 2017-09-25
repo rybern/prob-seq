@@ -17,7 +17,7 @@ main = sampleSequence 100
 
 
 
-single = Fix $ DeterministicSequence (V.fromList $ map (\a -> [a]) "abb")
+single = series (map (\a -> state [a]) "abb")
 
 withSkip = Fix $ AndThen
   single
@@ -49,7 +49,7 @@ sampleSequence n = do
 et a b = Fix $ EitherOr 0.5 a b
 at a b = Fix $ AndThen a b
 
-c a = Fix $ DeterministicSequence (V.fromList a)
+c a = series . map state $ a
 
 sample :: (Eq a) => ProbSeq a -> IO (Vector a, Int)
 sample = randToIO . sampleSeq vecDist . buildMatSeq
@@ -69,7 +69,7 @@ elementary = Fix $ AndThen
   (Fix $ UniformDistRepeat 4 (Fix $ Skip 1))
 
 uniformNT :: ProbSeq String
-uniformNT = (Fix . UniformDistOver . map (Fix . DeterministicSequence . V.singleton) $ ["G", "A", "T", "C"])
+uniformNT = (Fix . UniformDistOver . map state $ ["G", "A", "T", "C"])
 
 seqUniformLength :: Int -> Int -> ProbSeq s -> ProbSeq s
 seqUniformLength min max s = Fix $ FiniteDistRepeat dist s

@@ -59,7 +59,7 @@ arbitraryLeafConstructor :: (Arbitrary s) => Gen (Constructor s ())
 arbitraryLeafConstructor = oneof
   [
     return $ EmptySequence
-  , arbitraryDeterministicSequence
+  , arbitraryState
   , arbitrarySkip
   ]
 
@@ -68,12 +68,10 @@ arbitrarySkip = do
   n <- choose (0, 3)
   return (Skip n)
 
-arbitraryDeterministicSequence :: Arbitrary s => Gen (Constructor s ())
-arbitraryDeterministicSequence = do
-  --let n = 1
-  n <- choose (0, 4)
-  v <- V.replicateM n arbitrary
-  return (DeterministicSequence v)
+arbitraryState :: Arbitrary s => Gen (Constructor s ())
+arbitraryState = do
+  s <- arbitrary
+  return (State s)
 
 probGen :: Gen Prob
 probGen = toRational <$> (choose (0, 1) :: Gen Double)

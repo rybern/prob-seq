@@ -44,7 +44,7 @@ constructorSeqProb :: (Eq s)
                   -> (Vector s, Int)
                   -> Prob
 constructorSeqProb EmptySequence s = if s == (V.empty, 0) then 1 else 0
-constructorSeqProb (DeterministicSequence v) s = if s == (v, 0) then 1 else 0
+constructorSeqProb (State s') s = if s == (V.singleton s', 0) then 1 else 0
 constructorSeqProb (Skip n) s = if s == (V.empty, n) then 1 else 0
 constructorSeqProb (EitherOr p m1 m2) s = p * seqProb m1 s + (1 - p) * seqProb m2 s
 constructorSeqProb (AndThen m1 m2) (seq, sk) = sum $ do
