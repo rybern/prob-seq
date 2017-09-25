@@ -29,7 +29,7 @@ buildMatSeqTree =
 
 buildConstructor :: (Eq s) => Constructor s (MatSeq s) -> MatSeq s
 buildConstructor EmptySequence = Ops.emptySequence
-buildConstructor (DeterministicSequence v) = Ops.deterministicSequence v
+buildConstructor (State s) = Ops.state s
 buildConstructor (MatrixForm v) = v
 buildConstructor (Skip n) = Ops.skip n
 buildConstructor (EitherOr p a1 a2) = Ops.eitherOr p a1 a2

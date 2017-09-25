@@ -31,8 +31,8 @@ skip n = MatSeq {
   , stateLabels = V.empty
   }
 
-deterministicSequence :: V.Vector s -> MatSeq s
-deterministicSequence states = MatSeq {
-    trans = M.idMx (V.length states + 1)
-  , stateLabels = V.imap (\ix s -> (s, StateTag ix [])) states
+state :: s -> MatSeq s
+state s = MatSeq {
+    trans = M.idMx 2
+  , stateLabels = V.singleton (s, StateTag 0 [])
   }

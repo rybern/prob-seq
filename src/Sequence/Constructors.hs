@@ -9,7 +9,7 @@ import qualified Data.Vector as V
 
 data Constructor s t =
     EmptySequence
-  | DeterministicSequence (Vector s)
+  | State s
   | Skip Int
   | MatrixForm (MatSeq s)
   | EitherOr Prob t t
@@ -30,7 +30,7 @@ data Constructor s t =
 -- should maybe write these for core constructors instead
 instance (Show s, Show t) => Show (Constructor s t) where
   show EmptySequence = "<>"
-  show (DeterministicSequence v) = "<" ++ show v ++ ">"
+  show (State s) = show s
   show (Skip n) = "skip[" ++ show n ++ "]"
   show (MatrixForm _) = "mat"
   show (EitherOr p a b) = "{" ++ show p ++ ": " ++ show a ++ ", 1-" ++ show p ++ ": " ++ show b ++ "}"
@@ -84,8 +84,8 @@ mapWith cf (ProbSeqWith (Fix constr)) =
 emptySequence :: ProbSeq s
 emptySequence = Fix $ EmptySequence
 
-deterministicSequence :: (Vector s) -> ProbSeq s
-deterministicSequence v = Fix $ DeterministicSequence v
+state :: s -> ProbSeq s
+state v = Fix $ State v
 
 skip :: Int -> ProbSeq s
 skip n = Fix $ Skip n

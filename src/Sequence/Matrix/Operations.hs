@@ -2,7 +2,7 @@
 module Sequence.Matrix.Operations
   (
     emptySequence
-  , deterministicSequence
+  , state
   , eitherOr
   , andThen
   , collapse
