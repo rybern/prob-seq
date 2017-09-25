@@ -1,13 +1,16 @@
 module Sequence.Matrix.IO
   ( readSTPFile
   , writeSTPFile
+  , writeSTPHandle
   , readSTFile
   , writeSTFile
+  , writeSTHandle
   , readMatSeq
   , writeMatSeq
   ) where
 
 import System.FilePath.Posix
+import System.IO
 import qualified Math.LinearAlgebra.Sparse as M
 
 import Sequence.Matrix.ProbSeqMatrixUtils
@@ -15,19 +18,21 @@ import Sequence.Matrix.Types
 import Sequence.Matrix.IO.Read
 import Sequence.Matrix.IO.Write
 
-type Extension = String
+import Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Text.IO as Text
 
-writeExtensionFile :: Extension
-                   -> (Trans -> Trans)
-                   -> HideLabels
-                   -> DecimalProb
-                   -> MatSeq String
-                   -> FilePath
-                   -> IO ()
-writeExtensionFile ext f hideLabels decimalProbs seq fp =
-  writeMatSeqFile f hideLabels decimalProbs seq (maybeAddExtension ext fp)
+writeExtensionHandle :: (Trans -> Trans)
+                     -> HideLabels
+                     -> DecimalProb
+                     -> MatSeq String
+                     -> Handle
+                     -> IO ()
+writeExtensionHandle f hideLabels decimalProbs seq h =
+  let txt = writeMatSeq f hideLabels decimalProbs seq
+  in Text.hPutStr h txt
 
-maybeAddExtension :: Extension -> FilePath -> FilePath
+maybeAddExtension :: String -> FilePath -> FilePath
 maybeAddExtension extension fp =
   if takeExtension fp == extension
   then fp
@@ -39,10 +44,15 @@ readSTPFile :: FilePath
             -> IO (Either ParseError (MatSeq String))
 readSTPFile = readMatSeqFile id
 
+writeSTPHandle :: MatSeq String
+               -> Handle
+               -> IO ()
+writeSTPHandle = writeExtensionHandle id False False
+
 writeSTPFile :: MatSeq String
             -> FilePath
             -> IO ()
-writeSTPFile = writeExtensionFile ".stp" id False False
+writeSTPFile seq fp = withFile fp WriteMode (writeSTPHandle seq)
 
 {- ST Files -}
 
@@ -53,10 +63,15 @@ readSTFile = readMatSeqFile unCleanTrans
 unCleanTrans :: Trans -> Trans
 unCleanTrans t = (snd . M.popRow (M.height t) $ t)
 
+writeSTHandle :: MatSeq String
+            -> Handle
+            -> IO ()
+writeSTHandle = writeExtensionHandle cleanTrans False True
+
 writeSTFile :: MatSeq String
             -> FilePath
             -> IO ()
-writeSTFile = writeExtensionFile ".st" cleanTrans False True
+writeSTFile seq fp = withFile fp WriteMode (writeSTHandle seq)
 
 cleanTrans :: Trans -> Trans
 cleanTrans = addStartColumn . collapseEnds

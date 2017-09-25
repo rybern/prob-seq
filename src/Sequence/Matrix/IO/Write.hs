@@ -1,7 +1,6 @@
 module Sequence.Matrix.IO.Write
   ( HideLabels (..)
   , DecimalProb (..)
-  , writeMatSeqFile
   , writeMatSeq
   , showMatSeq
   )
@@ -17,15 +16,6 @@ import Sequence.Matrix.IO.TransMatrix
 import Sequence.Matrix.IO.StateLabels
 
 type HideLabels = Bool
-
-writeMatSeqFile :: (Trans -> Trans)
-                -> HideLabels
-                -> DecimalProb
-                -> MatSeq String
-                -> FilePath
-                -> IO ()
-writeMatSeqFile f hideLabels decimalProbs seq fp = Text.writeFile fp txt
-  where txt = Text.unlines $ showMatSeq f hideLabels decimalProbs seq
 
 writeMatSeq :: (Trans -> Trans)
             -> HideLabels
