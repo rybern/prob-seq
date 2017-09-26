@@ -57,6 +57,7 @@ library
                      , Sequence.Matrix.Operations.Insertion
                      , Sequence.Matrix.Operations.Products
                      , Sequence.Matrix.Operations.Reverse
+                     , Sequence.Matrix.Operations.SkipDist
                      , Sequence.Matrix.Types
                      , Sequence.Types
                      , Sequence.Matrix.IO.Write

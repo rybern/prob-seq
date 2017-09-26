@@ -28,6 +28,7 @@ import Data.Fix as X
   ( Fix (..)
   )
 
+{-
 import qualified Data.Vector as V
 import Control.Monad
 
@@ -50,7 +51,6 @@ test' = do
         states = map (\c -> state [c]) ['a'..'z']
         skipDist = finiteDistOver $ zip (map skip [0..]) [0.3, 0.3, 0.3, 0.1]
 
-{-
 there are two modes for composing skips:
 trimming the ends of the second operand so that they can't add,
 or adding the second ends to the remaining first ends.

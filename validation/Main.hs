@@ -184,11 +184,11 @@ cycleSeq = andThen
         nEnd = 20
 
 periodSeq :: ProbSeq Int
-periodSeq = series . map (\v -> andThen (state v) skipDistSeq) $
+periodSeq = series . map (\v -> andThen (state v) skipDSeq) $
   [ 2, 1 ]
 
-skipDist :: [Prob]
-skipDist = [0.5, 1 - head skipDist]
+skipD :: [Prob]
+skipD = [0.5, 1 - head skipD]
 
-skipDistSeq :: ProbSeq a
-skipDistSeq = finiteDistRepeat skipDist $ skip 1
+skipDSeq :: ProbSeq a
+skipDSeq = finiteDistRepeat skipD $ skip 1
