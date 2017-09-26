@@ -27,3 +27,11 @@ import Sequence.Matrix.ProbSeqMatrixUtils as X
 import Data.Fix as X
   ( Fix (..)
   )
+
+import qualified Data.Vector as V
+
+test :: IO (V.Vector Int, Int)
+test = sampleSeqIxs vecDist $ buildMatSeq seq
+  where seq = series $ map (andThen skipDist) states
+        states = map state [1..10]
+        skipDist = finiteDistOver $ zip (map skip [1..]) [0, 0, 0, 1]

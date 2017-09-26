@@ -74,32 +74,3 @@ addEndTransitions minEnds m = (M.vconcat [addStartColumn $ m, endTransitions], r
 
 removeEndTransitions :: (Trans, Int) -> Trans
 removeEndTransitions (m, r) = trimZeroCols . M.delCol 1 . fst $ splitRowsAt r m
-
-{-
-distributeEnds :: Trans -> Trans -> Trans
-distributeEnds trans = trimZeroCols . mapRows (distributeEndDist trans)
-
-distributeEndDist :: Trans -> Dist -> Dist
-distributeEndDist trans = (`M.row` 1) . transStepDist trans
-
-transStepDist :: Trans -> Dist -> Trans
-transStepDist m dist = sum $ (\(ix, p) -> (p *) <$> transNSteps m ix) <$> M.vecToAssocList dist
-
-transNSteps :: Trans -> Int -> Trans
-transNSteps m 0 = M.idMx (M.width m)
-transNSteps m n = (!! (n - 1)) . iterate (`transStep` m) $ m
-
-transStep :: Trans -> Trans -> Trans
-transStep m1 m2 = removeEndTransitions (m1' `M.mul` m2', max r1 r2)
-  where maxEnds = max (nEnds m1) (nEnds m2)
-        (m1', r1) = addEndTransitions maxEnds m1
-        (m2', r2) = addEndTransitions maxEnds m2
-
-addEndTransitions :: Int -> Trans -> (Trans, Int)
-addEndTransitions minEnds m = (M.vconcat [addStartColumn $ m, endTransitions], r)
-  where (r, c) = M.dims m
-        (_, endTransitions) = splitRowsAt r $ forwardDiagonal (r + max (nEnds m) minEnds)
-
-removeEndTransitions :: (Trans, Int) -> Trans
-removeEndTransitions (m, r) = trimZeroCols . M.delCol 1 . fst $ splitRowsAt r m
--}
