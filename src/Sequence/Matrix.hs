@@ -32,8 +32,10 @@ buildConstructor EmptySequence = Ops.emptySequence
 buildConstructor (State s) = Ops.state s
 buildConstructor (MatrixForm v) = v
 buildConstructor (Skip n) = Ops.skip n
+buildConstructor (SkipDist ps a) = Ops.skipDist ps a
 buildConstructor (EitherOr p a1 a2) = Ops.eitherOr p a1 a2
 buildConstructor (AndThen a1 a2) = Ops.andThen a1 a2
+buildConstructor (AndThen' a1 a2) = Ops.andThen' a1 a2
 buildConstructor (ReverseSequence a1) = Ops.reverseSequence a1
 buildConstructor (GeometricRepeat p a1) = Ops.geometricRepeat p a1
 buildConstructor (Collapse _ f n a1) = Ops.collapse f n a1
@@ -57,13 +59,17 @@ buildConstructor (FiniteDistRepeat ps a) = f 0 ps a
             (f (ix + 1) rest a))
           where (p:rest) = normalize ps
 buildConstructor (Possibly p a) = Ops.eitherOr p a Ops.emptySequence
+buildConstructor (Series' []) = Ops.emptySequence
+buildConstructor (Series' as) =
+  foldl1 (\a b -> removeLabelSeq $ Ops.andThen' a b) (zipWith appendLabelSeq [0..] as)
 buildConstructor (Series as) = f 0 as
   where f _ [] = Ops.emptySequence
         f ix [a] = appendLabelSeq ix a
         f ix as = let (leftAs, rightAs) = splitAt (length as `div` 2) as
-                  in removeLabelSeq $ Ops.andThen
+                  in removeLabelSeq $ Ops.andThen'
                      (f ix leftAs)
                      (f (ix + length leftAs) rightAs)
+
 buildConstructor (Repeat n a) = buildConstructor (Series (replicate n a))
 
 normalize :: (Traversable t) => t Prob -> t Prob

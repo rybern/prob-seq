@@ -18,8 +18,13 @@ import qualified Data.Map as Map
 
 import Sequence.Matrix.Operations.Deterministic
 
-andThen :: MatSeq s -> MatSeq s -> MatSeq s
-andThen seqA seqB = MatSeq {
+type SkipAdd = Bool
+
+andThen = andThenToggle True
+andThen' = andThenToggle False
+
+andThenToggle :: SkipAdd -> MatSeq s -> MatSeq s -> MatSeq s
+andThenToggle skipAdd seqA seqB = MatSeq {
     trans = trans'
   , stateLabels = stateLabels'
   }
@@ -29,7 +34,8 @@ andThen seqA seqB = MatSeq {
         transB = trans seqB
         (mainA, endsA) = splitEnds transA
         (_, nonstartB) = splitStart transB
-        transition = transB `distributeEnds` endsA
+        transTo = if skipAdd then transB else collapseEnds transB
+        transition = transTo `distributeEnds` endsA -- collapseEnds transB?
         rightLen = max (M.width transition) (M.width transB)
         lowerLeft = M.zeroMx (M.height nonstartB, M.width mainA)
         trans' = M.blockMx [ [mainA, setWidth rightLen transition]
@@ -51,15 +57,18 @@ instance Monoid (MatSeq a) where
 
 distributeEnds :: Trans -> Trans -> Trans
 distributeEnds transTo transFrom = trimZeroCols . mapRows (transStepDist steps) $ transFrom
-  where steps = transSteps transTo
+  where steps = startsSteps transTo
 
 transStepDist :: [Dist] -> Dist -> Dist
 transStepDist steps dist = sum $ (\(ix, p) -> (p *) <$> getStep ix) <$> M.vecToAssocList dist
   where getStep 0 = let len = (M.dim (head steps)) in onehotVector len len
         getStep n = steps !! (n - 1)
 
-transSteps :: Trans -> [Dist]
-transSteps m = map (`M.row` 1) $ iterate (`transStep` m) $ m
+startsSteps :: Trans -> [Dist]
+startsSteps = map (`M.row` 1) . transSteps
+
+transSteps :: Trans -> [Trans]
+transSteps m = iterate (`transStep` m) $ m
 
 transStep :: Trans -> Trans -> Trans
 transStep m1 m2 = removeEndTransitions (m1' `M.mul` m2', max r1 r2)

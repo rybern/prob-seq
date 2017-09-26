@@ -5,6 +5,7 @@ module Sequence.Matrix.Operations
   , state
   , eitherOr
   , andThen
+  , andThen'
   , collapse
   , getNormalTrans
   , getNormalTransWithEnds
@@ -15,6 +16,7 @@ module Sequence.Matrix.Operations
   , nStates
   , reachableSkips
   , intersperse
+  , skipDist
   ) where
 
 
@@ -23,6 +25,7 @@ import Sequence.Matrix.Operations.EitherOr
 import Sequence.Matrix.Operations.Collapsing
 import Sequence.Matrix.Operations.Deterministic
 import Sequence.Matrix.Operations.Insertion
+import Sequence.Matrix.Operations.SkipDist
 import Sequence.Matrix.Operations.Geometric
 import Sequence.Matrix.Operations.Reverse
 import Sequence.Matrix.Operations.Filtering

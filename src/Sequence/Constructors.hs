@@ -11,7 +11,9 @@ data Constructor s t =
     EmptySequence
   | State s
   | Skip Int
+  | SkipDist [Prob] t
   | MatrixForm (MatSeq s)
+  | AndThen' t t
   | EitherOr Prob t t
   | AndThen t t
   | GeometricRepeat Prob t
@@ -24,6 +26,7 @@ data Constructor s t =
   | FiniteDistRepeat [Prob] t
   | UniformDistRepeat Int t
   | Series [t]
+  | Series' [t]
   | Repeat Int t
   deriving (Functor, Foldable, Traversable)
 
@@ -32,9 +35,11 @@ instance (Show s, Show t) => Show (Constructor s t) where
   show EmptySequence = "<>"
   show (State s) = show s
   show (Skip n) = "skip[" ++ show n ++ "]"
+  show (SkipDist ps s) = "skipdist(" ++ show s ++ ")"
   show (MatrixForm _) = "mat"
   show (EitherOr p a b) = "{" ++ show p ++ ": " ++ show a ++ ", 1-" ++ show p ++ ": " ++ show b ++ "}"
   show (AndThen a b) = "<" ++ show a ++ ", " ++ show b ++ ">"
+  show (AndThen' a b) = "<'" ++ show a ++ ", " ++ show b ++ ">"
   show (Possibly p a) = "{" ++ show p ++ "? " ++ show a ++ "}"
   show (UniformDistOver as) = "{" ++ show as ++ "}"
   show (FiniteDistOver as) = "{" ++ (intercalate ", " (map (\(a, p) -> show p ++ ": " ++ show a) as)) ++ "}"
@@ -44,6 +49,7 @@ instance (Show s, Show t) => Show (Constructor s t) where
   show (ReverseSequence a) = "reverse(" ++ show a ++ ")"
   show (Collapse _ _ n a) = "collapse(" ++ show n ++ ", " ++ show a ++ ")"
   show (Series as) = "<" ++ intercalate ", " (map show as) ++ ">"
+  show (Series' as) = "<'" ++ intercalate ", " (map show as) ++ ">"
   show (Repeat n a) = "<" ++ show a ++ "[" ++ show n ++ "]" ++ ">"
 
 type ProbSeq s = Fix (Constructor s)
@@ -90,11 +96,17 @@ state v = Fix $ State v
 skip :: Int -> ProbSeq s
 skip n = Fix $ Skip n
 
+skipDist :: [Prob] -> ProbSeq s -> ProbSeq s
+skipDist ps a = Fix $ SkipDist ps a
+
 matrixForm :: (MatSeq s) -> ProbSeq s
 matrixForm m = Fix $ MatrixForm m
 
 eitherOr :: Prob -> ProbSeq s -> ProbSeq s -> ProbSeq s
 eitherOr p a b = Fix $ EitherOr p a b
+
+andThen' :: ProbSeq s -> ProbSeq s -> ProbSeq s
+andThen' a b = Fix $ AndThen' a b
 
 andThen :: ProbSeq s -> ProbSeq s -> ProbSeq s
 andThen a b = Fix $ AndThen a b
@@ -125,6 +137,9 @@ finiteDistRepeat ps a = Fix $ FiniteDistRepeat ps a
 
 series :: [ProbSeq s] -> ProbSeq s
 series as = Fix $ Series as
+
+series' :: [ProbSeq s] -> ProbSeq s
+series' as = Fix $ Series' as
 
 repeatSequence :: Int -> ProbSeq s -> ProbSeq s
 repeatSequence n a = Fix $ Repeat n a
