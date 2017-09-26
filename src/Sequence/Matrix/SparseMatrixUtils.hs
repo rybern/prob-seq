@@ -132,6 +132,9 @@ allRows = allElems . M.rows
 toVec :: (Eq a, Num a, Foldable f) => f a -> M.SparseVector a
 toVec = M.vecFromAssocList . (\l -> if null l then [(0,0)] else l) . zip [1..] . toList
 
+scale :: (Eq a, Num a) => a -> M.SparseMatrix a -> M.SparseMatrix a
+scale a = ((a *) <$>)
+
 mapRows :: (Eq a, Num a) => (M.SparseVector a -> M.SparseVector a) -> M.SparseMatrix a -> M.SparseMatrix a
 mapRows f = M.fromRows . toVec . map f . allRows
   --where rows = f <$> allRows m

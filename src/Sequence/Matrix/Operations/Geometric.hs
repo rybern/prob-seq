@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 module Sequence.Matrix.Operations.Geometric where
 
 import Sequence.Matrix.Types
@@ -23,9 +24,6 @@ import Sequence.Matrix.Operations.EitherOr
 -- seems to work as expected, just need to line everything up
 
 {-
-
-SEXY ALERT
-
 Here's how to implement the geometric distribution:
 
 take the distributeEnds matrix between m and (m `eitherOr (1-p)` emptySeq),
@@ -34,9 +32,21 @@ and add it to m's transition matrix.
 By adding, you're basically identifying the states between the two copies, thereby transitioning itself.
 -}
 
-
--- geometricRepeat ps has probability 1-sum ps of emptySequence
 geometricRepeat :: Prob -> MatSeq s -> MatSeq s
-geometricRepeat p s = undefined
-  where next = eitherOr p s emptySequence
-        ds = trans next `distributeEnds` (snd . splitEnds . trans $ s)
+geometricRepeat p (MatSeq {..}) = MatSeq {
+    trans = trans'
+  , stateLabels = appendLabel 0 stateLabels
+  }
+  where (main, ends) = splitEnds trans
+
+        -- do we need to iterate this somehow? what do we do with the ends after distribution, let them go?
+        transition = trans `distributeEnds` ends
+
+        trans' = M.hconcat [main, scale (1-p) ends] + scale p transition
+
+        --rightLen = max (M.width transition) (M.width trans)
+        --lowerLeft = M.zeroMx (M.height nonstartB, M.width mainA)
+        --trans' = M.blockMx [ [mainA, setWidth rightLen transition]
+                           --, [lowerLeft, setWidth rightLen nonstartB] ]
+        --trans' = M.vconcat [ mainA `happend` setWidth rightLen transition
+                           --, lowerLeft `happend` setWidth rightLen nonstartB ]
