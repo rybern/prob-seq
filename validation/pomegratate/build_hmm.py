@@ -2,6 +2,7 @@ from pomegranate import *
 import numpy as np
 import math
 import sys
+import pandas
 from read_st import read_st_file
 
 def build_hmm(transition_triples, states):
@@ -41,8 +42,11 @@ def check(triples, states):
   assert(min(rows) == 0)
   assert(max(cols) == n_states + 1) # -1 because of 1 indexing, +2 because of start, end column
 
-def read_emission_tsv(filepath):
+def read_emission_csv(filepath):
   return np.loadtxt(filepath, delimiter=",")
+
+def read_emission_pickle(filepath):
+  return pandas.read_pickle(filepath).as_matrix()
 
 def read_st_file(filepath):
   with open(filepath) as f:
@@ -63,6 +67,7 @@ def modelIxToStateIx(model, modelIx):
     return int(model.states[modelIx].name)
   except ValueError:
     return None
+
 def statePermutation(model):
   perm = filter(lambda i: i, map(lambda s: modelIxToStateIx(model, s), range(len(model.states))))
   #iperm = map(lambda i: perm.index(i + 1), range(len(model.states)))
@@ -77,7 +82,8 @@ def build_emissions_hmm(trans_file = "test.st",
                         viterbi_file = None,
                         forward_file = None,
                         backward_file = None):
-  emissions = read_emission_tsv(emissions_file)
+  emissions = read_emission_csv(emissions_file) if emissions_file.endswith(".csv") \
+              else read_emission_pickle(emission_file)
 
   n_loci, n_states = emissions.shape
 

@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedLists, ViewPatterns #-}
 module Main where
 
 import Data.Vector (Vector)
@@ -8,23 +8,64 @@ import Control.Monad
 import Data.Monoid
 import Data.Maybe
 import Sequence
-import System.Process
 import Data.Function
-import qualified Data.Map as M
+import System.Environment
 
 import EmissionIO
+import Utils
+import Pomegranate
 
-main :: IO ()
 main = do
+  [_, [ref], [alt], maf', leftFlank, [ref'], rightFlank] <- getArgs
+
+  --write this as a configuration file
+  print maf'
+  let maf = toRational $ (read maf' :: Double)
+  let snp = eitherOr maf (state [alt]) (state [ref])
+  let region = series $ map (state . return) leftFlank ++ [snp] ++ map (state . return) rightFlank
+  let noise = geometricRepeat 0.5 (uniformDistOver [state "G", state "A", state "T", state "C"])
+  let seq = series [noise, region, noise]
+
+  let ps = minion seq
+
+  let ms = buildMatSeq ps
+  print =<< sampleSeq vecDist ms
+  return ()
+
+minion :: ProbSeq [s] -> ProbSeq [s]
+minion = skipDist [0.4, 0.25, 0.15, 0.1, 0.1] . collapse undefined concat 4
+
+--main = compareSmall
+
+  {-
+compareMicrosatellites :: IO ()
+compareMicrosatellites = do
+  let satellite :: ProbSeq String
+      satellite = series . map (\c -> state [c]) $ "ATTTA"
+      genSeq = buildMatSeq . minion $ repeatSequence 15 satellite
+      priorSeq = buildMatSeq . minion $ andThen
+                    (repeatSequence 10 satellite)
+                    (uniformDistRepeat 20 satellite)
+      getRepeat :: ((Prob, (s, StateTag)) -> Maybe Int)
+      getRepeat (_, (_, StateTag 1 [StateTag n _])) = Just n
+      getRepeat _ = Nothing
+  print =<< sampleSeq vecDist priorSeq
+  print $ V.head $ stateLabels priorSeq
+
+  compareHMM genSeq priorSeq getRepeat
+
+compareSmall :: IO ()
+compareSmall = do
   let genSeq = buildMatSeq $ repeatSequence 15 periodSeq
       priorSeq = buildMatSeq $ andThen
                     (repeatSequence 0 periodSeq)
         (uniformDistRepeat 20 periodSeq)
       f = getRepeat
-  --let genSeq = buildMatSeq $ uniformDistRepeat 10 (finiteDistRepeat [0, 0.5, 0.5] (deterministicSequence [1]))
-      --priorSeq = genSeq
-      --f (_, (_, StateTag n _)) = Just n
   compareHMM genSeq priorSeq f
+
+getRepeat :: ((Prob, (s, StateTag)) -> Maybe Int)
+getRepeat (_, (_, StateTag 1 [StateTag n _])) = Just n
+getRepeat _ = Nothing
 
 compareHMM :: (Show s, Eq s)
            => MatSeq s
@@ -32,8 +73,7 @@ compareHMM :: (Show s, Eq s)
            -> ((Prob, (s, StateTag)) -> Maybe Int)
            -> IO ()
 compareHMM genSeq priorSeq f = do
-  (sampleIxs, posterior, viterbi, forward, backward) <- runHMM genSeq priorSeq
-  let sample = V.map (fst . (stateLabels genSeq V.!)) sampleIxs
+  (V.unzip -> (sample, sampleIxs), posterior, viterbi, forward, backward) <- runHMM genSeq priorSeq obsProb
 
   putStrLn $ "state labels:" ++ show sample
   putStrLn $ "state generating index:" ++ show sampleIxs
@@ -61,97 +101,7 @@ compareHMM genSeq priorSeq f = do
   --print priorSeq
 
   return ()
-
-compareIntHMM = do
-  (sampleIxs, posterior, viterbi, forward, backward) <- runHMM cycleMatSeq' cycleMatSeq
-  let sample = V.map (fst . (stateLabels cycleMatSeq V.!)) sampleIxs
-      tags = pathProbs (stateLabels cycleMatSeq) posterior
-
-  putStrLn $ "state labels:" ++ show sample
-  putStrLn $ "state generating index:" ++ show sampleIxs
-  putStrLn $ "truth: " ++ show (fromMaybe 0 $ getRepeat (undefined, stateLabels cycleMatSeq V.! V.last sampleIxs))
-  putStrLn $ "viterbi: " ++ show (fromMaybe 0 $ getRepeat (undefined, stateLabels cycleMatSeq V.! V.last viterbi))
-  let post_dist = (distOverRepeat $ V.last tags)
-      max_post = fst $ maximumBy (compare `on` snd) post_dist
-  putStrLn $ "max posterior: " ++ show max_post
-  putStrLn "posterior dist: "
-  mapM_ (\(ix, p) -> putStrLn $ show (succ ix) ++ ": " ++ show (fromRational p)) (distOverRepeat $ V.last tags)
-
-  return ()
-
-
-runHMM :: (Show s, Eq s) => MatSeq s -> MatSeq s -> IO (Vector Int, Emissions, Vector Int, Emissions, Emissions)
-runHMM genSeq priorSeq = do
-  sampleIxs <- fst <$> sampleSeqIxs vecDist genSeq
-  --let sampleIxs = [0,1,2,5,6,7,9,15,16,24,25,26,29]
-
-  let sample = V.map (fst . (stateLabels genSeq V.!)) sampleIxs
-
-  let transFile = "cycle_sim_transitions.st"
-      emissionsFile = "cycle_sim_emissions.csv"
-      posteriorFile = "cycle_sim_posterior.csv"
-      viterbiFile = "cycle_sim_viterbi.csv"
-      forwardFile = "cycle_sim_forward.csv"
-      backwardFile = "cycle_sim_backward.csv"
-
-  writeSTFile (mapStates show priorSeq) transFile
-  emissions <- mapM (obsProb priorSeq) sample
-  writeEmissions emissions emissionsFile
-
-  runPomegranate transFile emissionsFile posteriorFile viterbiFile forwardFile backwardFile
-
-  (Right posterior) <- readEmissions posteriorFile
-  (Right viterbiStateIxs) <- readViterbi viterbiFile
-  (Right forward) <- readEmissions forwardFile
-  (Right backward) <- readEmissions backwardFile
-
-  return (sampleIxs, posterior, viterbiStateIxs, forward, backward)
-
-type StateDist s = V.Vector (Prob, (s, StateTag))
-
-removeImpossible :: StateDist s -> StateDist s
-removeImpossible = V.filter ((/=0) . fst)
-
-maxPosterior :: StateDist s -> (Prob, (s, StateTag))
-maxPosterior = maximumBy (compare `on` fst) . V.toList
-
-distOverRepeat :: (Ord s) => StateDist s -> [(Int, Prob)]
-distOverRepeat = distOver getRepeat
-
-getRepeat :: ((Prob, (s, StateTag)) -> Maybe Int)
-getRepeat (_, (_, StateTag 1 [StateTag n _])) = Just n
-getRepeat _ = Nothing
-
-distOverLabel :: (Ord s) => StateDist s -> [(s, Prob)]
-distOverLabel = distOver (Just . fst . snd)
-
-distOver :: (Ord b) => ((Prob, (s, StateTag)) -> Maybe b) -> StateDist s -> [(b, Prob)]
-distOver f dist = map (\(b, groupDist) -> (b, sumDist groupDist)) (groupOn f dist)
-
-sumDist :: (Foldable t, Functor t) => t (Prob, (s, StateTag)) -> Prob
-sumDist = sum . fmap fst
-
-groupOn :: (Foldable t, Ord b) => (a -> Maybe b) -> t a -> [(b, [a])]
-groupOn f t = M.toList $ foldl
-              (\m a -> maybe
-                m
-                (\b -> M.insertWith (++) b [a] m)
-                (f a))
-              []
-              t
-
-pathProbs :: V.Vector (s, StateTag) -> Emissions -> V.Vector (V.Vector (Prob, (s, StateTag)))
-pathProbs stateLabels = V.map (flip V.zip stateLabels)
-
-runPomegranate :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> IO ()
-runPomegranate trans emms post viti fwd bwd= do
-  callProcess "/run/current-system/sw/bin/python"
-    ["/home/ryan/documents/haskell/smol/prob-seq/validation/pomegratate/build_hmm.py"
-    , trans, emms, post, viti, fwd, bwd ]
-  return ()
-
-normalize :: Vector Prob -> Vector Prob
-normalize v = let s = sum v in (/ s) <$> v
+-}
 
 obsProb :: (Eq s) => MatSeq s -> s -> IO (Vector Prob)
 obsProb seq i = return . normalize . V.map (\(i', _) -> if i == i' then 1.0 else 0.0) . stateLabels $ seq
@@ -184,7 +134,7 @@ cycleSeq = andThen
         nEnd = 20
 
 periodSeq :: ProbSeq Int
-periodSeq = series . map (\v -> andThen (state v) skipDSeq) $
+periodSeq = series' . map (\v -> andThen (state v) skipDSeq) $
   [ 2, 1 ]
 
 skipD :: [Prob]

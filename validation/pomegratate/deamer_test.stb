@@ -1,0 +1,4 @@
+any = uniform-dist-over [(state "G"), (state "A"), (state "T"), (state "C")]
+seq = geometric-repeat 0.99 any
+
+skip-dist [0.4, 0.25, 0.15, 0.1, 0.1] (collapse 5 seq)

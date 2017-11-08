@@ -13,9 +13,9 @@ data Constructor s t =
   | Skip Int
   | SkipDist [Prob] t
   | MatrixForm (MatSeq s)
-  | AndThen' t t
   | EitherOr Prob t t
   | AndThen t t
+  | AndThen' t t
   | GeometricRepeat Prob t
   | ReverseSequence t
   | Collapse (s -> Vector s) (Vector s -> s) Int t
@@ -24,10 +24,13 @@ data Constructor s t =
   | UniformDistOver [t]
   | FiniteDistOver [(t, Prob)]
   | FiniteDistRepeat [Prob] t
+  | FiniteDistRepeat' [Prob] t
   | UniformDistRepeat Int t
+  | UniformDistRepeat' Int t
   | Series [t]
   | Series' [t]
   | Repeat Int t
+  | Repeat' Int t
   deriving (Functor, Foldable, Traversable)
 
 -- should maybe write these for core constructors instead
@@ -105,11 +108,11 @@ matrixForm m = Fix $ MatrixForm m
 eitherOr :: Prob -> ProbSeq s -> ProbSeq s -> ProbSeq s
 eitherOr p a b = Fix $ EitherOr p a b
 
-andThen' :: ProbSeq s -> ProbSeq s -> ProbSeq s
-andThen' a b = Fix $ AndThen' a b
-
 andThen :: ProbSeq s -> ProbSeq s -> ProbSeq s
 andThen a b = Fix $ AndThen a b
+
+andThen' :: ProbSeq s -> ProbSeq s -> ProbSeq s
+andThen' a b = Fix $ AndThen' a b
 
 geometricRepeat :: Prob -> ProbSeq s -> ProbSeq s
 geometricRepeat p a = Fix $ GeometricRepeat p a
@@ -132,8 +135,14 @@ finiteDistOver pairs = Fix $ FiniteDistOver pairs
 uniformDistRepeat :: Int -> ProbSeq s -> ProbSeq s
 uniformDistRepeat n a = Fix $ UniformDistRepeat n a
 
+uniformDistRepeat' :: Int -> ProbSeq s -> ProbSeq s
+uniformDistRepeat' n a = Fix $ UniformDistRepeat' n a
+
 finiteDistRepeat :: [Prob] -> ProbSeq s -> ProbSeq s
 finiteDistRepeat ps a = Fix $ FiniteDistRepeat ps a
+
+finiteDistRepeat' :: [Prob] -> ProbSeq s -> ProbSeq s
+finiteDistRepeat' ps a = Fix $ FiniteDistRepeat' ps a
 
 series :: [ProbSeq s] -> ProbSeq s
 series as = Fix $ Series as
@@ -143,3 +152,6 @@ series' as = Fix $ Series' as
 
 repeatSequence :: Int -> ProbSeq s -> ProbSeq s
 repeatSequence n a = Fix $ Repeat n a
+
+repeatSequence' :: Int -> ProbSeq s -> ProbSeq s
+repeatSequence' n a = Fix $ Repeat n a

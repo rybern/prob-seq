@@ -50,6 +50,9 @@ buildConstructor (FiniteDistOver pairs) = f . map (\(i, (a, p)) -> (appendLabelS
 buildConstructor (UniformDistRepeat n s) =
   let uniform = recip . fromIntegral . succ $ n
   in buildConstructor $ FiniteDistRepeat (replicate (n+1) uniform) s
+buildConstructor (UniformDistRepeat' n s) =
+  let uniform = recip . fromIntegral . succ $ n
+  in buildConstructor $ FiniteDistRepeat' (replicate (n+1) uniform) s
 buildConstructor (FiniteDistRepeat ps a) = f 0 ps a
   where f _ [] _ = Ops.emptySequence
         f ix ps a = removeLabelSeq $ Ops.eitherOr p
@@ -58,10 +61,15 @@ buildConstructor (FiniteDistRepeat ps a) = f 0 ps a
             (appendLabelSeq ix a)
             (f (ix + 1) rest a))
           where (p:rest) = normalize ps
+buildConstructor (FiniteDistRepeat' ps a) = f 0 ps a
+  where f _ [] _ = Ops.emptySequence
+        f ix ps a = removeLabelSeq $ Ops.eitherOr p
+          Ops.emptySequence
+          (removeLabelSeq $ Ops.andThen'
+            (appendLabelSeq ix a)
+            (f (ix + 1) rest a))
+          where (p:rest) = normalize ps
 buildConstructor (Possibly p a) = Ops.eitherOr p a Ops.emptySequence
-buildConstructor (Series' []) = Ops.emptySequence
-buildConstructor (Series' as) =
-  foldl1 (\a b -> removeLabelSeq $ Ops.andThen' a b) (zipWith appendLabelSeq [0..] as)
 buildConstructor (Series as) = f 0 as
   where f _ [] = Ops.emptySequence
         f ix [a] = appendLabelSeq ix a
@@ -69,8 +77,11 @@ buildConstructor (Series as) = f 0 as
                   in removeLabelSeq $ Ops.andThen'
                      (f ix leftAs)
                      (f (ix + length leftAs) rightAs)
-
+buildConstructor (Series' []) = Ops.emptySequence
+buildConstructor (Series' as) =
+  foldl1 (\a b -> removeLabelSeq $ Ops.andThen' a b) (zipWith appendLabelSeq [0..] as)
 buildConstructor (Repeat n a) = buildConstructor (Series (replicate n a))
+buildConstructor (Repeat' n a) = buildConstructor (Series' (replicate n a))
 
 normalize :: (Traversable t) => t Prob -> t Prob
 normalize t = let s = sum t in if s == 0

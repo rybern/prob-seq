@@ -1,4 +1,4 @@
-resolver: lts-8.20
+resolver: lts-9.12
 
 packages:
 - '.'
@@ -11,4 +11,4 @@ flags: {}
 extra-package-dbs: []
 
 nix:
-  packages: [python27Packages.pomegranate]
+  packages: [python27Packages.pomegranate, pkgconfig, cairo, zlib, gmp, ncurses, gcc]
