@@ -23,7 +23,7 @@ showTrans decimals = map showTriple . tail . M.toAssocList
             pack (show (r - 1))
           , pack (show (c - 1))
           , if decimals
-            then pack . show . fromRational $ v
+            then pack . show $ v -- fromRational
             else "(" <> pack (show v) <> ")"
           ]
 
@@ -36,11 +36,11 @@ parseTransTriple = do
   _ <- char ' '
   col <- decimal
   _ <- char ' '
-  val <- parseProb
+  val <- double
   return ((row + 1, col + 1), val)
 
-parseProb :: Parser Prob
-parseProb = choice [
+parseRatio :: Parser Rational
+parseRatio = choice [
     do _ <- char '('
        num <- decimal
        _ <- string " % "

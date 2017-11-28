@@ -11,10 +11,10 @@ type Emissions = Vector (Vector Prob)
 type DEmissions = Vector (Vector Double)
 
 toDecimal :: Emissions -> DEmissions
-toDecimal = V.map (V.map fromRational)
+toDecimal = id -- V.map (V.map fromRational)
 
 fromDecimal :: DEmissions -> Emissions
-fromDecimal = V.map (V.map toRational)
+fromDecimal = id --V.map (V.map toRational)
 
 encodeEmissions :: Emissions -> BS.ByteString
 encodeEmissions = encode . V.toList . toDecimal

@@ -42,7 +42,7 @@ main = do
   calls <- forM sites $ \site -> do
     hPutStrLn stderr "attempting site"
     p <- callSNP emissionsFile site
-    let res = show (pos site) ++ "," ++ show (fromRational (maf site)) ++ "," ++ show (fromRational p)
+    let res = show (pos site) ++ "," ++ show (maf site) ++ "," ++ show p
     hPutStrLn h res
 
   --writeFile outputFile $ unlines calls
@@ -70,7 +70,7 @@ parseSite row = Site {
   , rightFlank = rightFlank
   }
   where
-    [read -> pos, [ref], [alt], toRational . (read::String->Double) -> maf, leftFlank, [ref'], rightFlank] = words row
+    [read -> pos, [ref], [alt], (read::String->Double) -> maf, leftFlank, [ref'], rightFlank] = words row
 
 callSNP :: FilePath
         -> Site
