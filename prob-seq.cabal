@@ -18,6 +18,8 @@ executable validation
   other-modules:       EmissionIO
                      , Utils
                      , Pomegranate
+                     , EmissionPermutation
+                     , SHMM
   ghc-options:
         -O2
         -threaded

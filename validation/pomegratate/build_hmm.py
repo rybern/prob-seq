@@ -27,7 +27,9 @@ def build_hmm(transition_triples, states):
 
     model.add_transition(source, dest, val)
 
+  print "done triples"
   model.bake()
+  print "done bake"
   model.freeze()
   model.freeze_distributions()
 
@@ -83,7 +85,7 @@ def build_emissions_hmm(trans_file = "test.st",
                         forward_file = None,
                         backward_file = None):
   emissions = read_emission_csv(emissions_file) if emissions_file.endswith(".csv") \
-              else read_emission_pickle(emission_file)
+              else read_emission_pickle(emissions_file)
 
   n_loci, n_states = emissions.shape
 
@@ -93,13 +95,19 @@ def build_emissions_hmm(trans_file = "test.st",
 
   triples = read_st_file(trans_file)
 
+  print "read"
+
   model = build_hmm(triples, states)
+
+  print "built"
 
   path = [i for i in range(n_loci)]
 
   perm, iperm = statePermutation(model)
   vit = viterbi_seq(model, path)
+  print "done viterbi"
   post = posterior_seq(model, path)[:, iperm]
+  print "done post"
   fwd = forward_seq(model, path)
   bwd = backward_seq(model, path)
 
