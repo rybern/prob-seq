@@ -20,6 +20,8 @@ executable validation
                      , Pomegranate
                      , EmissionPermutation
                      , SHMM
+                     , SNP
+                     , MinION
   ghc-options:
         -O2
         -threaded

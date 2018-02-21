@@ -14,10 +14,12 @@ import Data.Function
 import System.Environment
 import System.IO
 
+import SNP
 import EmissionPermutation
 import EmissionIO
 import Utils
 import Pomegranate
+import MinION
 import qualified SHMM as SHMM
 
 main = do
@@ -30,6 +32,7 @@ main = do
   (emissionsFile, siteLines, outputFile) <- case args of
     [emissionsFile, sitesFile, outputFile] -> do
       siteLines <- lines <$> readFile sitesFile
+      hPutStrLn stderr $ "Found " ++ show (length siteLines) ++ " sites"
       return (emissionsFile, siteLines, outputFile)
     otherwise -> do
       hPutStrLn stderr "Arguments invalid, using test arguments"
@@ -37,36 +40,49 @@ main = do
 
   let sites = map parseSite siteLines
 
+  probAlts <- (concat <$>) . forM sites $ \site -> do
+    hPutStrLn stderr $ "running site " ++ show (pos site)
+    probAlt <- callSNPs emissionsFile [site]
+    hPutStrLn stderr $ "found p(alt) " ++ show probAlt
+    return probAlt
+
   h <- openFile outputFile WriteMode
+  forM (zip probAlts sites) $ \(p, site) ->
+    hPutStrLn h $ show (pos site) ++ "," ++ show (snd $ alleles site !! 1) ++ "," ++ show p
+  hClose h
+
   -- running out of memory!
-  calls <- forM sites $ \site -> do
-    hPutStrLn stderr "attempting site"
-    p <- callSNP emissionsFile site
-    let res = show (pos site) ++ "," ++ show (maf site) ++ "," ++ show p
-    hPutStrLn h res
+  -- calls <- forM sites $ \site -> do
+    --hPutStrLn stderr "attempting site"
+    --p <- callSNP emissionsFile site
+    --let res = show (pos site) ++ "," ++ show (maf site) ++ "," ++ show p
+    --hPutStrLn h res
 
   --writeFile outputFile $ unlines calls
 
   return ()
 
-data Site = Site {
-    pos :: Int
-  , ref :: Char
-  , alt :: Char
-  , maf :: Prob
-  , leftFlank :: String
-  , ref' :: Char
-  , rightFlank :: String
-  }
+probOfAlt :: [Prob] -> Prob
+probOfAlt [refP, altP] = (altP / (refP + altP))
+
+callSNPs :: FilePath -> [Site] -> IO [Prob]
+callSNPs emissionsFile sites = do
+  let (matSeq, ixs) = snpsMatSeq sites
+
+  putStrLn $ "done building " ++ show (V.length (stateLabels matSeq))
+  post <- SHMM.runHMM minionIndexMap emissionsFile matSeq
+  let ps = map (map (\arr -> stateProbs arr post)) ixs
+  putStrLn $ "results: " ++ intercalate "," (map show ps)
+
+  return $ map probOfAlt ps
+
+
 
 parseSite :: String -> Site
 parseSite row = Site {
-    pos = pos
-  , ref = ref
-  , alt = alt
-  , maf = maf
+    alleles = [(ref, 1-maf), (alt, maf)]
+  , pos = pos
   , leftFlank = leftFlank
-  , ref' = ref'
   , rightFlank = rightFlank
   }
   where
@@ -88,30 +104,6 @@ callSNP emissionsFile site = do
 
 stateProbs :: Vector Int -> Emissions -> Prob
 stateProbs ixs emissions = sum . V.map (\row -> sum . V.map (row V.!) $ ixs) $ emissions
-
-snpMatSeq :: Site -> (MatSeq [Char], Vector Int, Vector Int)
-snpMatSeq (Site {..}) = (matSeq, refIxs, altIxs)
-  where matSeq = buildMatSeq . minion $
-          series [noise, series [left, eitherOr maf altState refState, right] , noise]
-        altState = state [alt]
-        refState = state [ref]
-        left = series . map (state . return) $ leftFlank
-        right = series . map (state . return) $ rightFlank
-        noise = geometricRepeat 0.99 (uniformDistOver (map state keyOrder))
-
-        tags = V.map snd . stateLabels $ matSeq
-        tagSNP snp (StateTag 0 [StateTag 0 seqStates]) = flip any seqStates $ \seqState ->
-          case seqState of
-            (StateTag 1 [StateTag 1 [StateTag x _]]) -> x == snp
-            _ -> False
-        tagSNP _ _ = False
-
-        allIxs = V.enumFromTo 0 (V.length tags - 1)
-        altIxs = V.filter (\i -> tagSNP 0 $ tags V.! i) allIxs
-        refIxs = V.filter (\i -> tagSNP 1 $ tags V.! i) allIxs
-
-minion :: ProbSeq [s] -> ProbSeq [s]
-minion = skipDist [0.4, 0.25, 0.15, 0.1, 0.1] . collapse undefined concat 5
 
 --main = compareSmall
 

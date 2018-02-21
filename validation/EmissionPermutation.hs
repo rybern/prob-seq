@@ -7,21 +7,19 @@ import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Sequence
 import Data.List
+import MinION
 
 permuteVector :: Int -> V.Vector String -> V.Vector (V.Vector String)
 permuteVector 0 _ = V.singleton []
 permuteVector n alpha = V.concatMap (\a -> V.map (a `V.cons`) smaller) alpha
   where smaller = permuteVector (pred n) alpha
 
-keyOrder :: [String]
-keyOrder = ["A", "C", "G", "T"]
-
 indexMap :: (Ord s) => V.Vector s -> Map s Int
 indexMap v = V.ifoldl' (\m ix val -> Map.insert val ix m) Map.empty v
 
 kmerString :: V.Vector String -> String
-kmerString = concat . V.toList
---kmerString = (\s -> "(" ++ s ++ ")") . intercalate "," . V.toList
+--kmerString = concat . V.toList
+kmerString = (\s -> "(" ++ s ++ ")") . intercalate "," . V.toList
 
 minionIndexMap = indexMap . V.map kmerString . permuteVector 5 . V.fromList $ keyOrder
 
