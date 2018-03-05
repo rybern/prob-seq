@@ -7,6 +7,10 @@ import Data.Vector (Vector)
 import Sequence.Matrix.Types
 import qualified Math.LinearAlgebra.Sparse as M
 
+import Data.Csv hiding (Parser)
+import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Lazy.Char8 as BSC
+import Data.Word as BS
 import Data.Monoid ((<>))
 import Data.List
 import Data.Text (Text, pack)
@@ -15,10 +19,17 @@ import Data.Ratio ((%))
 
 type DecimalProb = Bool
 
+transCSVOptions = defaultEncodeOptions { encDelimiter = BS.head $ BSC.singleton ' '}
+
 showTrans :: DecimalProb
           -> Trans
+          -> BS.ByteString
+showTrans decimals = encodeWith transCSVOptions . map (\((r, c), p) -> (r - 1, c - 1, p)) . tail . M.toAssocList
+
+showTrans' :: DecimalProb
+          -> Trans
           -> [Text]
-showTrans decimals = map showTriple . tail . M.toAssocList
+showTrans' decimals = map showTriple . tail . M.toAssocList
   where showTriple ((r, c), v) = mconcat . intersperse " " $ [
             pack (show (r - 1))
           , pack (show (c - 1))

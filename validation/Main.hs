@@ -6,6 +6,8 @@ import qualified Data.Map as Map
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Data.List
+import qualified Data.ByteString.Lazy.Char8 as BS
+import Data.Csv
 import Control.Monad
 import Data.Monoid
 import Data.Maybe
@@ -13,14 +15,19 @@ import Sequence
 import Data.Function
 import System.Environment
 import System.IO
+import System.IO.Temp
 
 import SNP
+import GeneralizedSNP
 import EmissionPermutation
 import EmissionIO
 import Utils
 import Pomegranate
 import MinION
+import SubsampleFile
 import qualified SHMM as SHMM
+
+import Math.LinearAlgebra.Sparse.Matrix hiding (trans)
 
 main = do
   -- [_, [ref], [alt], maf', leftFlank, [ref'], rightFlank] <- getArgs
@@ -29,20 +36,25 @@ main = do
   --let args = words "deamer.fast5.nanonet_posterior.csv 62525667 T C 0.3954 CCTTGGATGC T ACTGGGTTTG"
   args <- getArgs
 
-  (emissionsFile, siteLines, outputFile) <- case args of
-    [emissionsFile, sitesFile, outputFile] -> do
+  (regionFile, emissionsFile, siteLines, outputFile) <- case args of
+    [regionFile, emissionsFile, sitesFile, outputFile] -> do
       siteLines <- lines <$> readFile sitesFile
       hPutStrLn stderr $ "Found " ++ show (length siteLines) ++ " sites"
-      return (emissionsFile, siteLines, outputFile)
+      return (regionFile, emissionsFile, siteLines, outputFile)
     otherwise -> do
       hPutStrLn stderr "Arguments invalid, using test arguments"
-      return ("minion_post.csv", testLines, "snp-calling-test-output.csv")
+      return ("region.csv", "minion_post.csv", testLines, "snp-calling-test-output.csv")
+
+  (_, emissionsStart, emissionsEnd) <- readRegionFile regionFile
+  numEvents <- countFileLines emissionsFile
 
   let sites = map parseSite siteLines
 
+  let genMS = genMatSeq
+
   probAlts <- (concat <$>) . forM sites $ \site -> do
     hPutStrLn stderr $ "running site " ++ show (pos site)
-    probAlt <- callSNPs emissionsFile [site]
+    probAlt <- callSNP genMS numEvents emissionsStart emissionsEnd emissionsFile site
     hPutStrLn stderr $ "found p(alt) " ++ show probAlt
     return probAlt
 
@@ -62,12 +74,50 @@ main = do
 
   return ()
 
+readRegionFile :: FilePath -> IO (String, Int, Int)
+readRegionFile regionFile = do
+  (Right [triple]) <- decode NoHeader <$> BS.readFile regionFile
+  return triple
+
 probOfAlt :: [Prob] -> Prob
 probOfAlt [refP, altP] = (altP / (refP + altP))
 
-callSNPs :: FilePath -> [Site] -> IO [Prob]
+{- CHECK THE INDICES! COULD BE OFF BY 1! -}
+
+softFlank = 50
+
+siteEmissions :: Int -> Int -> Int -> Int -> FilePath -> FilePath -> Site a -> IO ()
+siteEmissions softFlank numEvents emissionsStart emissionsEnd emissionsFile tmpEmissionsFile site =
+  subsampleFile (center - softFlank, 2 * softFlank + 1) emissionsFile tmpEmissionsFile
+  where proportion = (fromIntegral $ pos site) / (fromIntegral $ emissionsEnd - emissionsStart)
+        center = round (fromIntegral numEvents * proportion)
+
+callSNP :: MatSeq (StateTree GenSNPState) -> Int -> Int -> Int -> FilePath -> Site NT -> IO [Prob]
+callSNP genMS numEvents emissionsStart emissionsEnd emissionsFile site = do
+  let (matSeq, ixs) = specifyGenMatSeqNT genMS site  -- snpsNTMatSeq sites
+
+  hPutStr stderr $ "evaluating genMS: "
+  hPutStrLn stderr $ show (trans genMS # (100, 100))
+  hPutStr stderr $ "evaluating siteMS: "
+  hPutStrLn stderr $ show (trans matSeq # (100, 100))
+
+  putStrLn $ "subsampling emissions file with region size " ++ show (2 * softFlank + 1)
+  subsampledEmissionsFile <- emptySystemTempFile emissionsFile
+  siteEmissions softFlank numEvents emissionsStart emissionsEnd emissionsFile subsampledEmissionsFile site
+  putStrLn $ "using temporary subsampled emissions file: " ++ subsampledEmissionsFile
+
+  post <- SHMM.runHMM minionIndexMap subsampledEmissionsFile matSeq
+
+  let ps = map (map (\arr -> stateProbs arr post)) ixs
+  putStrLn $ "results: " ++ intercalate "," (map show ps)
+
+  return $ map probOfAlt ps
+
+
+{-
+callSNPs :: FilePath -> [Site NT] -> IO [Prob]
 callSNPs emissionsFile sites = do
-  let (matSeq, ixs) = snpsMatSeq sites
+  let (matSeq, ixs) = specifyGenMatSeqNT (head sites)  -- snpsNTMatSeq sites
 
   putStrLn $ "done building " ++ show (V.length (stateLabels matSeq))
   post <- SHMM.runHMM minionIndexMap emissionsFile matSeq
@@ -75,10 +125,10 @@ callSNPs emissionsFile sites = do
   putStrLn $ "results: " ++ intercalate "," (map show ps)
 
   return $ map probOfAlt ps
+-}
 
 
-
-parseSite :: String -> Site
+parseSite :: String -> Site NT
 parseSite row = Site {
     alleles = [(ref, 1-maf), (alt, maf)]
   , pos = pos
@@ -88,8 +138,9 @@ parseSite row = Site {
   where
     [read -> pos, [ref], [alt], (read::String->Double) -> maf, leftFlank, [ref'], rightFlank] = words row
 
+{-
 callSNP :: FilePath
-        -> Site
+        -> Site NT
         -> IO Prob
 callSNP emissionsFile site = do
   let (ms, refIxs, altIxs) = snpMatSeq site
@@ -101,6 +152,7 @@ callSNP emissionsFile site = do
   let refP = stateProbs refIxs post
       altP = stateProbs altIxs post
   return (altP / (refP + altP))
+-}
 
 stateProbs :: Vector Int -> Emissions -> Prob
 stateProbs ixs emissions = sum . V.map (\row -> sum . V.map (row V.!) $ ixs) $ emissions

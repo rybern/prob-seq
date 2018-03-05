@@ -6,7 +6,7 @@ module Sequence.Matrix.IO
   , writeSTFile
   , writeSTHandle
   , readMatSeq
-  , writeMatSeq
+  --, writeMatSeq
   ) where
 
 import System.FilePath.Posix
@@ -17,6 +17,9 @@ import Sequence.Matrix.ProbSeqMatrixUtils
 import Sequence.Matrix.Types
 import Sequence.Matrix.IO.Read
 import Sequence.Matrix.IO.Write
+
+import Data.ByteString.Lazy.Char8 (ByteString)
+import qualified Data.ByteString.Lazy.Char8 as BS
 
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -29,8 +32,8 @@ writeExtensionHandle :: (Trans -> Trans)
                      -> Handle
                      -> IO ()
 writeExtensionHandle f hideLabels decimalProbs seq h =
-  let txt = writeMatSeq f hideLabels decimalProbs seq
-  in Text.hPutStr h txt
+  let txt = showMatSeq f hideLabels decimalProbs seq
+  in BS.hPutStr h txt
 
 maybeAddExtension :: String -> FilePath -> FilePath
 maybeAddExtension extension fp =
@@ -64,8 +67,8 @@ unCleanTrans :: Trans -> Trans
 unCleanTrans t = (snd . M.popRow (M.height t) $ t)
 
 writeSTHandle :: MatSeq String
-            -> Handle
-            -> IO ()
+              -> Handle
+              -> IO ()
 writeSTHandle = writeExtensionHandle cleanTrans False True
 
 writeSTFile :: MatSeq String

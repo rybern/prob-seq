@@ -8,6 +8,7 @@ import System.Process
 import System.IO.Temp
 import Data.Monoid
 import EmissionPermutation
+import Data.Time
 
 runHMM :: Map String Int
        -> FilePath
@@ -15,22 +16,19 @@ runHMM :: Map String Int
        -> IO Emissions
 runHMM indexMap emissionsFile priorSeq = do
   withSystemTempDirectory "" $ \dir -> do
-    --let --transFile = dir<>"/transitions.st"
-        --permutationFile = dir<>"/permutation.csv"
-        --posteriorFile = dir<>"/posterior.csv"
+    let transFile = "transitions.st"
+        permutationFile = dir<>"/permutation.csv"
+        posteriorFile = dir<>"/posterior.csv"
 
-
-    let transFile = "minion_SHMM_trans.st"
-    let permutationFile = "minion_SHMM_permutation.csv"
-    let posteriorFile = "minion_SHMM_posterior.csv"
-
+    getZonedTime >>= print
     writeSTFile priorSeq transFile
+    getZonedTime >>= print
     writeEmissionPerm indexMap permutationFile priorSeq
-
+    getZonedTime >>= print
     callSHMM transFile emissionsFile permutationFile posteriorFile
-
+    getZonedTime >>= print
     (Right posterior) <- readEmissions posteriorFile
-
+    getZonedTime >>= print
     return posterior
 
 callSHMM :: FilePath -> FilePath -> FilePath -> FilePath -> IO ()

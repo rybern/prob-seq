@@ -8,14 +8,34 @@ import Sequence.Matrix.Types
 
 import Data.Monoid ((<>))
 import Data.List
-import Data.Text hiding (map, intersperse)
+import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Lazy.Char8 as BS
+import qualified Data.ByteString.Conversion as BS
+import qualified Data.Text as Text
 import Data.Attoparsec.Text
 
 -- Writing
 
 showStateLabels :: Vector (String, StateTag)
+                -> ByteString
+showStateLabels = V.foldl1' BS.append . flip V.replicate "#\n" . V.length
+
+showStateLabels' :: Vector (String, StateTag)
+                -> ByteString
+showStateLabels' = V.foldl1' BS.append . V.map showPair
+  where showPair (label, tag) =
+          "#" <> (BS.pack label) <> ":" <> showTag tag <> "\n"
+        showTag (StateTag tag rest) =
+          (BS.toByteString tag) <>
+          case rest of
+            [] -> ""
+            [child] -> "," <> showTag child
+            children -> ",[" <> (mconcat $ intersperse ";" (map showTag children)) <> "]"
+
+{-
+showStateLabels' :: Vector (String, StateTag)
                 -> [Text]
-showStateLabels = V.toList . V.map showPair
+showStateLabels' = V.toList . V.map showPair
   where showPair (label, tag) =
           "#" <> (pack label) <> ":" <> showTag tag
         showTag (StateTag tag rest) =
@@ -24,6 +44,7 @@ showStateLabels = V.toList . V.map showPair
             [] -> ""
             [child] -> "," <> showTag child
             children -> ",[" <> (mconcat $ intersperse ";" (map showTag children)) <> "]"
+-}
 
 -- Reading
 
@@ -34,7 +55,7 @@ parseStatePair :: Parser (String, StateTag)
 parseStatePair = do
   _ <- char '#'
   textLabel <- takeWhile1 (/= ':')
-  let label = unpack $ textLabel
+  let label = Text.unpack $ textLabel
 
   _ <- char ':'
 

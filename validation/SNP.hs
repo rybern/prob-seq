@@ -1,8 +1,9 @@
-{-# LANGUAGE TupleSections, BangPatterns, RecordWildCards, ViewPatterns #-}
+{-# LANGUAGE DeriveFunctor, TupleSections, BangPatterns, RecordWildCards, ViewPatterns #-}
 module SNP where
 
 import Data.Vector (Vector)
 import qualified Data.Vector as V
+import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Maybe
 import Sequence
@@ -15,20 +16,20 @@ data Site a = Site {
   , alleles :: [(a, Prob)]
   , leftFlank :: [a]
   , rightFlank :: [a]
-  } deriving Show
+  } deriving (Show, Functor)
 
 data SNPCallerRegion a = SNP [(a, Prob)]
                        | Flank [a]
                        | Noise Int
                        deriving Show
 
-regionProbSeq :: [a] -> SNPCallerRegion a -> ProbSeq [a]
-regionProbSeq keyOrder (SNP nts) = finiteDistOver . map (\(nt, p) -> (state [nt], p)) $ nts
-regionProbSeq keyOrder (Flank nts) = series . map (state . return) $ nts
+regionProbSeq :: [a] -> SNPCallerRegion a -> ProbSeq a
+regionProbSeq keyOrder (SNP nts) = finiteDistOver . map (\(nt, p) -> (state nt, p)) $ nts
+regionProbSeq keyOrder (Flank nts) = series . map state $ nts
 regionProbSeq keyOrder (Noise expected) = geometricRepeat (1 / fromIntegral expected) noise
-  where noise = uniformDistOver (map (state . return) keyOrder)
+  where noise = uniformDistOver (map state keyOrder)
 
-regionsProbSeq :: [a] -> [SNPCallerRegion a] -> ProbSeq [a]
+regionsProbSeq :: [a] -> [SNPCallerRegion a] -> ProbSeq a
 regionsProbSeq keyOrder = series . map (regionProbSeq keyOrder)
 
 -- TODO: estimate starting and ending positions
@@ -76,6 +77,7 @@ siteComplement s@(Site {..}) = s {
   , rightFlank = map ntComplement rightFlank
   }
 
+{-
 snpsMatSeqRC :: [NT] -> [Site NT] -> (MatSeq [NT], [[Vector Int]])
 snpsMatSeqRC keyOrder (map siteComplement -> sites) = (matSeq, ixPairs)
   where regions = snpRegions sites
@@ -97,10 +99,15 @@ snpsMatSeqRC keyOrder (map siteComplement -> sites) = (matSeq, ixPairs)
         ixPairs = flip map snpIxs $ \(nAlleles, snp) ->
           flip map [0..nAlleles-1] $ \allele ->
           V.filter (\i -> tagSNP snp allele $ tags V.! i) allIxs
+-}
 
+snpsNTMatSeq :: [Site NT] -> (MatSeq [NT], [[Vector Int]])
+snpsNTMatSeq = snpsMatSeq (\a -> [a]) keyOrder
 
-snpsMatSeq :: [a] -> [Site a] -> (MatSeq [a], [[Vector Int]])
-snpsMatSeq keyOrder sites = (matSeq, ixPairs)
+-- make generic module, type for each location in snp site region, make site-swapping half of the specifying function
+
+snpsMatSeq :: (Joinable b, Eq b) => (a -> b) -> [a] -> [Site a] -> (MatSeq b, [[Vector Int]])
+snpsMatSeq toJoinable (map toJoinable -> keyOrder) (map (toJoinable <$>) -> sites) = (matSeq, ixPairs)
   where regions = snpRegions sites
         matSeq = buildMatSeq . minion . regionsProbSeq keyOrder $ regions
 

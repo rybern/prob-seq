@@ -21,7 +21,7 @@ kmerString :: V.Vector String -> String
 --kmerString = concat . V.toList
 kmerString = (\s -> "(" ++ s ++ ")") . intercalate "," . V.toList
 
-minionIndexMap = indexMap . V.map kmerString . permuteVector 5 . V.fromList $ keyOrder
+minionIndexMap = indexMap . V.map kmerString . permuteVector 5 . V.fromList . map return $ keyOrder
 
 minionKMerIndex :: Map String Int -> String -> Int
 minionKMerIndex m k = let (Just ix) = Map.lookup k m in ix

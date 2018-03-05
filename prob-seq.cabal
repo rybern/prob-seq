@@ -22,6 +22,8 @@ executable validation
                      , SHMM
                      , SNP
                      , MinION
+                     , GeneralizedSNP
+                     , SubsampleFile
   ghc-options:
         -O2
         -threaded
@@ -38,6 +40,8 @@ executable validation
                      , temporary
                      , Chart
                      , Chart-cairo
+                     , sparse-lin-alg
+                     , time
 
 executable profiling
   hs-source-dirs:      profiling
@@ -91,6 +95,9 @@ library
                      , text
                      , parallel
                      , mtl
+                     , cassava
+                     , bytestring
+                     , bytestring-conversion
 
 test-suite prob-seq-test
   type:                exitcode-stdio-1.0

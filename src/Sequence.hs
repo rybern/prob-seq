@@ -20,6 +20,8 @@ import Sequence.Matrix.Emissions as X
 
 import Sequence.Matrix.IO as X
 
+import Sequence.Matrix.SparseMatrixUtils as X hiding (normalize)
+
 import Sequence.Matrix.ProbSeqMatrixUtils as X
   ( mapStates
   )
