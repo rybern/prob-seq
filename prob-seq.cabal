@@ -42,6 +42,7 @@ executable validation
                      , Chart-cairo
                      , sparse-lin-alg
                      , time
+                     , shmm
 
 executable profiling
   hs-source-dirs:      profiling

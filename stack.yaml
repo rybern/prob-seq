@@ -2,9 +2,12 @@ resolver: lts-9.12
 
 packages:
 - '.'
+- ../shmm
 
-extra-deps: [ sparse-lin-alg-0.4.3
-            , vector-0.12.0.0 ]
+extra-deps: 
+- sparse-lin-alg-0.4.3
+- vector-0.12.0.0
+- shmm-1.0.0
 
 flags: {}
 

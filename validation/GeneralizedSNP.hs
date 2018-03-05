@@ -1,5 +1,12 @@
 {-# LANGUAGE DeriveFunctor, TupleSections, BangPatterns, RecordWildCards, ViewPatterns #-}
-module GeneralizedSNP where
+module GeneralizedSNP
+  ( genSite
+  , genMatSeq
+  , genMatIxs
+  , specifyGenMatSeq
+  , specifyGenMatSeqNT
+  , GenSNPState (..)
+  ) where
 
 import SNP
 import Data.List
