@@ -17,9 +17,7 @@ executable validation
   default-language:    Haskell2010
   other-modules:       EmissionIO
                      , Utils
-                     , Pomegranate
                      , EmissionPermutation
-                     , SHMM
                      , SNP
                      , MinION
                      , GeneralizedSNP

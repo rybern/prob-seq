@@ -22,10 +22,11 @@ import GeneralizedSNP
 import EmissionPermutation
 import EmissionIO
 import Utils
-import Pomegranate
 import MinION
 import SubsampleFile
 import qualified SHMM as SHMM
+
+import Sequence.Matrix.ProbSeqMatrixUtils
 
 import Math.LinearAlgebra.Sparse.Matrix hiding (trans)
 
@@ -51,10 +52,11 @@ main = do
   let sites = map parseSite siteLines
 
   let genMS = genMatSeq
+  (Right emissions) <- readEmissions emissionsFile
 
   probAlts <- (concat <$>) . forM sites $ \site -> do
     hPutStrLn stderr $ "running site " ++ show (pos site)
-    probAlt <- callSNP genMS numEvents emissionsStart emissionsEnd emissionsFile site
+    probAlt <- callSNP genMS numEvents emissionsStart emissionsEnd emissions site
     hPutStrLn stderr $ "found p(alt) " ++ show probAlt
     return probAlt
 
@@ -86,14 +88,14 @@ probOfAlt [refP, altP] = (altP / (refP + altP))
 
 softFlank = 50
 
-siteEmissions :: Int -> Int -> Int -> Int -> FilePath -> FilePath -> Site a -> IO ()
-siteEmissions softFlank numEvents emissionsStart emissionsEnd emissionsFile tmpEmissionsFile site =
-  subsampleFile (center - softFlank, 2 * softFlank + 1) emissionsFile tmpEmissionsFile
-  where proportion = (fromIntegral $ pos site) / (fromIntegral $ emissionsEnd - emissionsStart)
-        center = round (fromIntegral numEvents * proportion)
+siteEmissions :: Int -> Int -> Int -> Int -> Emissions -> Site a -> Emissions
+siteEmissions softFlank numEvents emissionsStart emissionsEnd emissions site =
+  V.slice (start - softFlank) (2 * softFlank + 1) emissions
+  where proportion = (fromIntegral $ pos site - emissionsStart) / (fromIntegral $ emissionsEnd - emissionsStart)
+        start = round (fromIntegral numEvents * proportion) - softFlank
 
-callSNP :: MatSeq (StateTree GenSNPState) -> Int -> Int -> Int -> FilePath -> Site NT -> IO [Prob]
-callSNP genMS numEvents emissionsStart emissionsEnd emissionsFile site = do
+callSNP :: MatSeq (StateTree GenSNPState) -> Int -> Int -> Int -> Emissions -> Site NT -> IO [Prob]
+callSNP genMS numEvents emissionsStart emissionsEnd emissions site = do
   let (matSeq, ixs) = specifyGenMatSeqNT genMS site  -- snpsNTMatSeq sites
 
   hPutStr stderr $ "evaluating genMS: "
@@ -102,17 +104,32 @@ callSNP genMS numEvents emissionsStart emissionsEnd emissionsFile site = do
   hPutStrLn stderr $ show (trans matSeq # (100, 100))
 
   putStrLn $ "subsampling emissions file with region size " ++ show (2 * softFlank + 1)
-  subsampledEmissionsFile <- emptySystemTempFile emissionsFile
-  siteEmissions softFlank numEvents emissionsStart emissionsEnd emissionsFile subsampledEmissionsFile site
-  putStrLn $ "using temporary subsampled emissions file: " ++ subsampledEmissionsFile
+  --subsampledEmissionsFile <- emptySystemTempFile emissionsFile
+  --putStrLn $ "using temporary subsampled emissions file: " ++ subsampledEmissionsFile
 
-  post <- SHMM.runHMM minionIndexMap subsampledEmissionsFile matSeq
+  let subEmissions = siteEmissions softFlank numEvents emissionsStart emissionsEnd emissions site
+
+  post <- runHMM minionIndexMap emissions matSeq
 
   let ps = map (map (\arr -> stateProbs arr post)) ixs
   putStrLn $ "results: " ++ intercalate "," (map show ps)
 
   return $ map probOfAlt ps
 
+runHMM :: Map String Int
+       -> Emissions
+       -> MatSeq String
+       -> IO Emissions
+runHMM indexMap emissions priorSeq = SHMM.shmmFull (nStates (trans priorSeq)) triples emissions permutation
+  where permutation = buildEmissionPerm indexMap priorSeq
+        triples = matSeqTriples priorSeq
+
+matSeqTriples :: MatSeq a
+              -> [(Int, Int, Double)]
+matSeqTriples = map (\((r, c), p) -> (r - 1, c - 1, p)) . tail . toAssocList . cleanTrans . trans
+
+cleanTrans :: Trans -> Trans
+cleanTrans = addStartColumn . collapseEnds
 
 {-
 callSNPs :: FilePath -> [Site NT] -> IO [Prob]
@@ -126,7 +143,6 @@ callSNPs emissionsFile sites = do
 
   return $ map probOfAlt ps
 -}
-
 
 parseSite :: String -> Site NT
 parseSite row = Site {
