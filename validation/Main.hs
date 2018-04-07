@@ -9,6 +9,7 @@ import Data.List
 import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.Csv
 import Control.Monad
+import Control.Monad.Loops
 import Data.Monoid
 import Data.Maybe
 import Sequence
@@ -25,18 +26,25 @@ import Utils
 import MinION
 import SubsampleFile
 import qualified SHMM as SHMM
+import Data.Hashable
 
 import Sequence.Matrix.ProbSeqMatrixUtils
 
 import Math.LinearAlgebra.Sparse.Matrix hiding (trans)
 
-main = do
-  -- [_, [ref], [alt], maf', leftFlank, [ref'], rightFlank] <- getArgs
-  --let row = "62525667 T C 0.3954 CCTTGGATGC T ACTGGGTTTG"
-  --let row = "62526024 T G 0.4101 CGCTCCAGGG T TGAGCAAATG"
-  --let args = words "deamer.fast5.nanonet_posterior.csv 62525667 T C 0.3954 CCTTGGATGC T ACTGGGTTTG"
-  args <- getArgs
+setupSiteAnalysis :: String -> String -> [String] -> FilePath
+                  -> IO (FilePath, MatSeq (StateTree GenSNPState), Int, Int, Int, Emissions, [Site NT])
+setupSiteAnalysis regionFile emissionsFile siteLines outputFile = do
+  (_, emissionsStart, emissionsEnd) <- readRegionFile regionFile
+  numEvents <- countFileLines emissionsFile
+  let sites = map parseSite siteLines
+  let genMS = genMatSeq
+  (Right emissions) <- readEmissions emissionsFile
+  return (outputFile, genMS, numEvents, emissionsStart, emissionsEnd, emissions, sites)
 
+setupSiteAnalysisArgs :: [String]
+                      -> IO (FilePath, MatSeq (StateTree GenSNPState), Int, Int, Int, Emissions, [Site NT])
+setupSiteAnalysisArgs args = do
   (regionFile, emissionsFile, siteLines, outputFile) <- case args of
     [regionFile, emissionsFile, sitesFile, outputFile] -> do
       siteLines <- lines <$> readFile sitesFile
@@ -44,15 +52,24 @@ main = do
       return (regionFile, emissionsFile, siteLines, outputFile)
     otherwise -> do
       hPutStrLn stderr "Arguments invalid, using test arguments"
-      return ("region.csv", "minion_post.csv", testLines, "snp-calling-test-output.csv")
+      --return ("test_data/region.csv", "test_data/minion_post.csv", testLines, "test_data/snp-calling-test-output.csv")
+      return ( "test_data/region.csv"
+             , "test_data/minion_post.csv"
+             , testLines
+             , "test_data/snp-calling-test-output.csv")
+  setupSiteAnalysis regionFile emissionsFile siteLines outputFile
 
-  (_, emissionsStart, emissionsEnd) <- readRegionFile regionFile
-  numEvents <- countFileLines emissionsFile
+writePosts :: (FilePath, MatSeq (StateTree GenSNPState), Int, Int, Int, Emissions, [Site NT])
+           -> IO ()
+writePosts (outputFile, genMS, numEvents, emissionsStart, emissionsEnd, emissions, sites) = do
+  forM_ (tail sites) $ \site -> do
+    print $ siteEmissionsBounds softFlank numEvents emissionsStart emissionsEnd site
+    writeSNPPost genMS numEvents emissionsStart emissionsEnd emissions (head sites) $ "post_deamer_" ++ show (pos site) ++ ".csv"
+  hPutStrLn stderr $ "done writing post"
 
-  let sites = map parseSite siteLines
-
-  let genMS = genMatSeq
-  (Right emissions) <- readEmissions emissionsFile
+main = do
+  (outputFile, genMS, numEvents, emissionsStart, emissionsEnd, emissions, sites) <-
+    getArgs >>= setupSiteAnalysisArgs
 
   probAlts <- (concat <$>) . forM sites $ \site -> do
     hPutStrLn stderr $ "running site " ++ show (pos site)
@@ -89,10 +106,57 @@ probOfAlt [refP, altP] = (altP / (refP + altP))
 softFlank = 50
 
 siteEmissions :: Int -> Int -> Int -> Int -> Emissions -> Site a -> Emissions
-siteEmissions softFlank numEvents emissionsStart emissionsEnd emissions site =
-  V.slice (start - softFlank) (2 * softFlank + 1) emissions
+siteEmissions softFlank numEvents emissionsStart emissionsEnd emissions site = V.slice start length emissions
+  where (start, length) = siteEmissionsBounds softFlank numEvents emissionsStart emissionsEnd site
+
+siteEmissionsBounds :: Int -> Int -> Int -> Int -> Site a -> (Int, Int)
+siteEmissionsBounds softFlank numEvents emissionsStart emissionsEnd site =
+  (center - softFlank, 2 * softFlank + 1)
   where proportion = (fromIntegral $ pos site - emissionsStart) / (fromIntegral $ emissionsEnd - emissionsStart)
-        start = round (fromIntegral numEvents * proportion) - softFlank
+        center = round (fromIntegral numEvents * proportion) - softFlank
+
+
+writeSNPPost :: MatSeq (StateTree GenSNPState) -> Int -> Int -> Int -> Emissions -> Site NT -> FilePath -> IO ()
+writeSNPPost genMS numEvents emissionsStart emissionsEnd emissions site outFile = do
+  let (matSeq, [[refIxs, altIxs]]) = specifyGenMatSeqNT genMS site
+
+  post <- runHMM minionIndexMap emissions matSeq
+
+  let refVec = V.map (\row -> sum $ V.map (row V.!) refIxs) post
+      altVec = V.map (\row -> sum $ V.map (row V.!) altIxs) post
+      refLine = ("ref," ++ ) . intercalate "," . map show . V.toList $ refVec
+      altLine = ("alt," ++ ) . intercalate "," . map show . V.toList $ altVec
+      content = unlines [refLine, altLine]
+
+  writeFile outFile content
+
+
+testCallSNP :: MatSeq (StateTree GenSNPState) -> Int -> Int -> Int -> Emissions -> Site NT -> IO [Prob]
+testCallSNP genMS numEvents emissionsStart emissionsEnd emissions site = do
+  let (matSeq, ixs) = specifyGenMatSeqNT genMS site  -- snpsNTMatSeq sites
+
+  hPutStr stderr $ "evaluating genMS: "
+  hPutStrLn stderr $ show (trans genMS # (100, 100))
+  hPutStr stderr $ "evaluating siteMS: "
+  hPutStrLn stderr $ show (trans matSeq # (100, 100))
+
+  hPutStrLn stderr $ "subsampling emissions file with region size " ++ show (2 * softFlank + 1)
+  --subsampledEmissionsFile <- emptySystemTempFile emissionsFile
+  --putStrLn $ "using temporary subsampled emissions file: " ++ subsampledEmissionsFile
+
+  let subEmissions = siteEmissions softFlank numEvents emissionsStart emissionsEnd emissions site
+
+  ps <- iterateUntilDiffM $ do
+    ps <- runHMMSum' ixs minionIndexMap subEmissions matSeq
+    hPutStrLn stderr $ "results: " ++ intercalate "," (map show ps)
+    return ps
+
+  return $ map probOfAlt ps
+
+iterateUntilDiffM :: (Monad m, Eq a) => m a -> m a
+iterateUntilDiffM action = do
+  comp <- action
+  iterateWhile (/= comp) action
 
 callSNP :: MatSeq (StateTree GenSNPState) -> Int -> Int -> Int -> Emissions -> Site NT -> IO [Prob]
 callSNP genMS numEvents emissionsStart emissionsEnd emissions site = do
@@ -103,18 +167,40 @@ callSNP genMS numEvents emissionsStart emissionsEnd emissions site = do
   hPutStr stderr $ "evaluating siteMS: "
   hPutStrLn stderr $ show (trans matSeq # (100, 100))
 
-  putStrLn $ "subsampling emissions file with region size " ++ show (2 * softFlank + 1)
+  hPutStrLn stderr $ "subsampling emissions file with region size " ++ show (2 * softFlank + 1)
   --subsampledEmissionsFile <- emptySystemTempFile emissionsFile
   --putStrLn $ "using temporary subsampled emissions file: " ++ subsampledEmissionsFile
 
   let subEmissions = siteEmissions softFlank numEvents emissionsStart emissionsEnd emissions site
 
-  post <- runHMM minionIndexMap emissions matSeq
+  ps <- runHMMSum' ixs minionIndexMap subEmissions matSeq
 
-  let ps = map (map (\arr -> stateProbs arr post)) ixs
-  putStrLn $ "results: " ++ intercalate "," (map show ps)
+  hPutStrLn stderr $ "results: " ++ intercalate "," (map show ps)
 
   return $ map probOfAlt ps
+
+instance Hashable a => Hashable (Vector a) where
+  hashWithSalt = hashUsing V.toList
+
+runHMMSum' :: [[Vector Int]]
+           -> Map String Int
+           -> Emissions
+           -> MatSeq String
+           -> IO [[Prob]]
+runHMMSum' ixs indexMap emissions priorSeq = do
+  let permutation = buildEmissionPerm indexMap priorSeq
+      triples = matSeqTriples priorSeq
+      ns = (nStates (trans priorSeq))
+  sums <- SHMM.shmmSummed ns triples emissions permutation
+  return $ map (map (sum . V.map (sums V.!))) ixs
+
+runHMMSum :: [[Vector Int]]
+          -> Map String Int
+          -> Emissions
+          -> MatSeq String
+          -> IO [[Prob]]
+runHMMSum ixs indexMap emissions priorSeq = mapIxs <$> runHMM indexMap emissions priorSeq
+  where mapIxs post = map (map (\arr -> stateProbs arr post)) ixs
 
 runHMM :: Map String Int
        -> Emissions
@@ -281,6 +367,7 @@ skipD = [0.5, 1 - head skipD]
 skipDSeq :: ProbSeq a
 skipDSeq = finiteDistRepeat skipD $ skip 1
 
+  -- "62525746 G C 0.002396 CAGGAGCACC G GCCGCAGAGG"
 testLines :: [String]
 testLines = [
     "62525667 T C 0.3954 CCTTGGATGC T ACTGGGTTTG"
@@ -308,13 +395,13 @@ testLines = [
   , "62526719 G A 0.08187 GCCCACGTCA G GCCCGGGCAG"
   , "62526801 G C 0.09784 CCCCCGGGCC G GGGCTGCGCG"
   , "62526815 G T 0.001398 CTGCGCGGGC G CTCGGGGCCG"
-  , "62526818 C T 0.0007987 CGCGGGCGCT C GGGGCCGGAG"
-  , "62526898 G A 0.002796 TGCGGGAGCC G GGCCGGGCCG"
-  , "62527012 C T 0.01018 GCGGCCGCCC C CAACCCCCCG"
-  , "62527231 C T 0.02157 TTTATAAAAA C ATTTGAAGCC"
-  , "62527305 G A 0.09006 CTAACTTGTT G GTGTTAAGTG"
-  , "62527322 T A 0.002596 AGTGTCTGGA T TAAAGACTCT"
-  , "62527414 A C 0.000599 TTTCAGCTTT A TTTTTGTTTT"
-  , "62527427 G A 0.001997 TTTGTTTTCC G GCTTAGGCTT"
-  , "62527467 C T 0.002396 TGGTTAGACA C GTCTGCCCTT"
+  --, "62526818 C T 0.0007987 CGCGGGCGCT C GGGGCCGGAG"
+  --, "62526898 G A 0.002796 TGCGGGAGCC G GGCCGGGCCG"
+  --, "62527012 C T 0.01018 GCGGCCGCCC C CAACCCCCCG"
+  --, "62527231 C T 0.02157 TTTATAAAAA C ATTTGAAGCC"
+  --, "62527305 G A 0.09006 CTAACTTGTT G GTGTTAAGTG"
+  --, "62527322 T A 0.002596 AGTGTCTGGA T TAAAGACTCT"
+  --, "62527414 A C 0.000599 TTTCAGCTTT A TTTTTGTTTT"
+  --, "62527427 G A 0.001997 TTTGTTTTCC G GCTTAGGCTT"
+  --, "62527467 C T 0.002396 TGGTTAGACA C GTCTGCCCTT"
   ]

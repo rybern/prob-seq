@@ -41,6 +41,8 @@ executable validation
                      , sparse-lin-alg
                      , time
                      , shmm
+                     , hashable
+                     , monad-loops
 
 executable profiling
   hs-source-dirs:      profiling
