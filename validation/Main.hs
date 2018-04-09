@@ -18,6 +18,7 @@ import System.Environment
 import System.IO
 import System.IO.Temp
 
+import Plot
 import SNP
 import GeneralizedSNP
 import EmissionPermutation
@@ -62,14 +63,29 @@ setupSiteAnalysisArgs args = do
 writePosts :: (FilePath, MatSeq (StateTree GenSNPState), Int, Int, Int, Emissions, [Site NT])
            -> IO ()
 writePosts (outputFile, genMS, numEvents, emissionsStart, emissionsEnd, emissions, sites) = do
-  forM_ (tail sites) $ \site -> do
+  forM_ sites $ \site -> do
     print $ siteEmissionsBounds softFlank numEvents emissionsStart emissionsEnd site
-    writeSNPPost genMS numEvents emissionsStart emissionsEnd emissions (head sites) $ "post_deamer_" ++ show (pos site) ++ ".csv"
+    let locusStr = show (pos site)
+        baseFile = "post_deamer_" ++ locusStr
+        csvFile = baseFile ++ ".csv"
+        pngFile = baseFile ++ ".png"
+        f = id -- (/ log 1000000) . log . (+ 1) . (1000000 *)
+        emissions' = siteEmissions softFlank numEvents emissionsStart emissionsEnd emissions site
+    writeSNPPost genMS numEvents emissionsStart emissionsEnd emissions (head sites) csvFile
+    plotLinesFromFile csvFile f pngFile ("Lg Probability of SNP at locus " ++ locusStr) "locus" "probability" (0, 1)
+    hPutStrLn stderr $ "deamer " ++ show (pos site) ++ ".[csv,png]"
   hPutStrLn stderr $ "done writing post"
 
 main = do
-  (outputFile, genMS, numEvents, emissionsStart, emissionsEnd, emissions, sites) <-
+  env@(outputFile, genMS, numEvents, emissionsStart, emissionsEnd, emissions, sites) <-
     getArgs >>= setupSiteAnalysisArgs
+
+  res <- callSNPs genMS numEvents emissionsStart emissionsEnd emissions sites
+  print res
+
+  --writePosts env
+
+  {-
 
   probAlts <- (concat <$>) . forM sites $ \site -> do
     hPutStrLn stderr $ "running site " ++ show (pos site)
@@ -81,7 +97,7 @@ main = do
   forM (zip probAlts sites) $ \(p, site) ->
     hPutStrLn h $ show (pos site) ++ "," ++ show (snd $ alleles site !! 1) ++ "," ++ show p
   hClose h
-
+-}
   -- running out of memory!
   -- calls <- forM sites $ \site -> do
     --hPutStrLn stderr "attempting site"
@@ -118,7 +134,8 @@ siteEmissionsBounds softFlank numEvents emissionsStart emissionsEnd site =
 
 writeSNPPost :: MatSeq (StateTree GenSNPState) -> Int -> Int -> Int -> Emissions -> Site NT -> FilePath -> IO ()
 writeSNPPost genMS numEvents emissionsStart emissionsEnd emissions site outFile = do
-  let (matSeq, [[refIxs, altIxs]]) = specifyGenMatSeqNT genMS site
+  -- let (matSeq, [[refIxs, altIxs]]) = specifyGenMatSeqNT genMS site
+  let (matSeq, [[refIxs, altIxs]]) = snpsNTMatSeq emissionsStart emissionsEnd [site]  -- snpsNTMatSeq sites
 
   post <- runHMM minionIndexMap emissions matSeq
 
@@ -128,7 +145,20 @@ writeSNPPost genMS numEvents emissionsStart emissionsEnd emissions site outFile 
       altLine = ("alt," ++ ) . intercalate "," . map show . V.toList $ altVec
       content = unlines [refLine, altLine]
 
+  putStrLn $ "ref loci " ++ progressString emissionsStart (pos site) emissionsEnd
+  putStrLn $ "ref ixs " ++ progressString 0 (V.maxIndex refVec) (V.length refVec)
+  putStrLn $ "alt ixs " ++ progressString 0 (V.maxIndex altVec) (V.length refVec)
+  putStrLn $ "p(alt) " ++ show (sum altVec / (sum altVec + sum refVec))
+
   writeFile outFile content
+
+progressString :: Int -> Int -> Int -> String
+progressString start pnt end =
+    show start ++
+    "/(" ++ show pnt ++
+    ", " ++ show (100 * fromIntegral (pnt - start) / fromIntegral (end - start)) ++
+    "%)/" ++ show end
+
 
 
 testCallSNP :: MatSeq (StateTree GenSNPState) -> Int -> Int -> Int -> Emissions -> Site NT -> IO [Prob]
@@ -158,9 +188,31 @@ iterateUntilDiffM action = do
   comp <- action
   iterateWhile (/= comp) action
 
+callSNPs :: MatSeq (StateTree GenSNPState) -> Int -> Int -> Int -> Emissions -> [Site NT] -> IO [Prob]
+callSNPs genMS numEvents emissionsStart emissionsEnd emissions sites = do
+  --let (matSeq, ixs) = specifyGenMatSeqNT genMS site  -- snpsNTMatSeq sites
+  let (matSeq, ixs) = snpsNTMatSeq emissionsStart emissionsEnd sites  -- snpsNTMatSeq sites
+
+  hPutStr stderr $ "evaluating siteMS: "
+  hPutStrLn stderr $ show (trans matSeq # (100, 100))
+
+  hPutStrLn stderr $ "subsampling emissions file with region size " ++ show (2 * softFlank + 1)
+  --subsampledEmissionsFile <- emptySystemTempFile emissionsFile
+  --putStrLn $ "using temporary subsampled emissions file: " ++ subsampledEmissionsFile
+
+  --let subEmissions = siteEmissions softFlank numEvents emissionsStart emissionsEnd emissions site
+
+  ps <- runHMMSum' ixs minionIndexMap emissions matSeq
+
+  hPutStrLn stderr $ "results: " ++ intercalate "," (map show ps)
+
+  return $ map probOfAlt ps
+
+
 callSNP :: MatSeq (StateTree GenSNPState) -> Int -> Int -> Int -> Emissions -> Site NT -> IO [Prob]
 callSNP genMS numEvents emissionsStart emissionsEnd emissions site = do
-  let (matSeq, ixs) = specifyGenMatSeqNT genMS site  -- snpsNTMatSeq sites
+  --let (matSeq, ixs) = specifyGenMatSeqNT genMS site  -- snpsNTMatSeq sites
+  let (matSeq, ixs) = snpsNTMatSeq emissionsStart emissionsEnd [site]  -- snpsNTMatSeq sites
 
   hPutStr stderr $ "evaluating genMS: "
   hPutStrLn stderr $ show (trans genMS # (100, 100))
@@ -173,7 +225,7 @@ callSNP genMS numEvents emissionsStart emissionsEnd emissions site = do
 
   let subEmissions = siteEmissions softFlank numEvents emissionsStart emissionsEnd emissions site
 
-  ps <- runHMMSum' ixs minionIndexMap subEmissions matSeq
+  ps <- runHMMSum' ixs minionIndexMap emissions matSeq
 
   hPutStrLn stderr $ "results: " ++ intercalate "," (map show ps)
 
@@ -367,6 +419,7 @@ skipD = [0.5, 1 - head skipD]
 skipDSeq :: ProbSeq a
 skipDSeq = finiteDistRepeat skipD $ skip 1
 
+  -- runs out of memory between 8 and 16
   -- "62525746 G C 0.002396 CAGGAGCACC G GCCGCAGAGG"
 testLines :: [String]
 testLines = [
@@ -386,15 +439,15 @@ testLines = [
   , "62526334 C T 0.01418 CAGGGCGCCT C GGCCCCGGGC"
   , "62526352 C G 0.0003994 GGCTGTCACT C GGGACTCCGC"
   , "62526369 A G 0.000599 CCGCCCCTTC A TGGACGGAGC"
-  , "62526373 A G 0.01078 CCCTTCATGG A CGGAGCCTCC"
-  , "62526500 T T 0.00599 CGTGCTCGTC T CCGCTGCCGC"
-  , "62526500 T T 0.00599 CGTGCTCGTC T CCGCTGCCGC"
-  , "62526547 T T 0.08926 CCGCGCCCTC T GCCGCCGCCG"
-  , "62526547 T T 0.08926 CCGCGCCCTC T GCCGCCGCCG"
-  , "62526696 G A 0.04034 CTGCGGGTCG G GCGGGCGGAT"
-  , "62526719 G A 0.08187 GCCCACGTCA G GCCCGGGCAG"
-  , "62526801 G C 0.09784 CCCCCGGGCC G GGGCTGCGCG"
-  , "62526815 G T 0.001398 CTGCGCGGGC G CTCGGGGCCG"
+  --, "62526373 A G 0.01078 CCCTTCATGG A CGGAGCCTCC"
+  --, "62526500 T T 0.00599 CGTGCTCGTC T CCGCTGCCGC"
+  --, "62526500 T T 0.00599 CGTGCTCGTC T CCGCTGCCGC"
+  --, "62526547 T T 0.08926 CCGCGCCCTC T GCCGCCGCCG"
+  --, "62526547 T T 0.08926 CCGCGCCCTC T GCCGCCGCCG"
+  --, "62526696 G A 0.04034 CTGCGGGTCG G GCGGGCGGAT"
+  --, "62526719 G A 0.08187 GCCCACGTCA G GCCCGGGCAG"
+  --, "62526801 G C 0.09784 CCCCCGGGCC G GGGCTGCGCG"
+  --, "62526815 G T 0.001398 CTGCGCGGGC G CTCGGGGCCG"
   --, "62526818 C T 0.0007987 CGCGGGCGCT C GGGGCCGGAG"
   --, "62526898 G A 0.002796 TGCGGGAGCC G GGCCGGGCCG"
   --, "62527012 C T 0.01018 GCGGCCGCCC C CAACCCCCCG"

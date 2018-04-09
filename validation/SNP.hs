@@ -26,19 +26,20 @@ data SNPCallerRegion a = SNP [(a, Prob)]
 regionProbSeq :: [a] -> SNPCallerRegion a -> ProbSeq a
 regionProbSeq keyOrder (SNP nts) = finiteDistOver . map (\(nt, p) -> (state nt, p)) $ nts
 regionProbSeq keyOrder (Flank nts) = series . map state $ nts
-regionProbSeq keyOrder (Noise expected) = geometricRepeat (1 / fromIntegral expected) noise
+regionProbSeq keyOrder (Noise expected) = geometricRepeat (1 - 1 / fromIntegral expected) noise
   where noise = uniformDistOver (map state keyOrder)
 
 regionsProbSeq :: [a] -> [SNPCallerRegion a] -> ProbSeq a
 regionsProbSeq keyOrder = series . map (regionProbSeq keyOrder)
 
 -- TODO: estimate starting and ending positions
-snpRegions :: [Site a] -> [SNPCallerRegion a]
-snpRegions sites = let end = last sites
-                       first = head sites
-                   in flankBetween (pos first - 20) Nothing (Just $ leftFlank first) (pos first)
-                      ++ go sites
-                      ++ flankBetween (pos end) (Just $ rightFlank end) Nothing (pos end + 20)
+snpRegions :: Int -> Int -> [Site a] -> [SNPCallerRegion a]
+snpRegions readStart readEnd sites =
+  let end = last sites
+      first = head sites
+  in flankBetween readStart Nothing (Just $ leftFlank first) (pos first)
+     ++ go sites
+     ++ flankBetween (pos end) (Just $ rightFlank end) Nothing readEnd
   where go (a:b:rest) = siteSNP a : siteFlankBetween a b ++ go (b:rest)
         go [a] = [siteSNP a]
         go [] = []
@@ -101,14 +102,15 @@ snpsMatSeqRC keyOrder (map siteComplement -> sites) = (matSeq, ixPairs)
           V.filter (\i -> tagSNP snp allele $ tags V.! i) allIxs
 -}
 
-snpsNTMatSeq :: [Site NT] -> (MatSeq [NT], [[Vector Int]])
+snpsNTMatSeq :: Int -> Int -> [Site NT] -> (MatSeq [NT], [[Vector Int]])
 snpsNTMatSeq = snpsMatSeq (\a -> [a]) keyOrder
 
 -- make generic module, type for each location in snp site region, make site-swapping half of the specifying function
 
-snpsMatSeq :: (Joinable b, Eq b) => (a -> b) -> [a] -> [Site a] -> (MatSeq b, [[Vector Int]])
-snpsMatSeq toJoinable (map toJoinable -> keyOrder) (map (toJoinable <$>) -> sites) = (matSeq, ixPairs)
-  where regions = snpRegions sites
+snpsMatSeq :: (Joinable b, Eq b) => (a -> b) -> [a] -> Int -> Int -> [Site a] -> (MatSeq b, [[Vector Int]])
+snpsMatSeq toJoinable (map toJoinable -> keyOrder) readStart readEnd (map (toJoinable <$>) -> sites) =
+  (matSeq, ixPairs)
+  where regions = snpRegions readStart readEnd sites
         matSeq = buildMatSeq . minion . regionsProbSeq keyOrder $ regions
 
         isSNP (SNP vars) = Just (length vars)

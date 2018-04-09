@@ -16,6 +16,7 @@ data Constructor s t =
   | EitherOr Prob t t
   | AndThen t t
   | AndThen' t t
+  -- p probability of STAYING in t
   | GeometricRepeat Prob t
   | ReverseSequence t
   | Collapse (s -> Vector s) (Vector s -> s) Int t

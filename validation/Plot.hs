@@ -15,16 +15,17 @@ signal :: [Double] -> [(Double,Double)]
 signal xs = [ (x,(sin (x*3.14159/45) + 1) / 2 * (sin (x*3.14159/5))) | x <- xs ]
 
 plotLinesFromFile :: FilePath
+                  -> (Double -> Double)
                   -> FilePath
                   -> String
                   -> String
                   -> String
                   -> (Double, Double)
                   -> IO ()
-plotLinesFromFile inFile outFile title xaxis yaxis (lowerY, upperY) = do
+plotLinesFromFile inFile fn outFile title xaxis yaxis (lowerY, upperY) = do
   bsContent <- BS.readFile inFile
   let (Right lines) = decode NoHeader bsContent
-      ls = V.map (\(title:pts) -> (map (read @Double) pts, title)) lines
+      ls = V.map (\(title:pts) -> (map (fn . read @Double) pts, title)) lines
       xs = [1..length (fst (V.head ls))]
 
   toFile def outFile $ do

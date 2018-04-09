@@ -33,6 +33,7 @@ data GenSNPState = NoiseKey Int
 
 flankSize = 10
 noiseSize = 4
+softFlankSize = 50
 
 genSite :: Site GenSNPState
 genSite = Site {
@@ -49,9 +50,11 @@ specifySNPState _ site Ref = fst $ alleles site !! 0
 specifySNPState _ site Alt = fst $ alleles site !! 1
 specifySNPState _ site (RightFlank i) = rightFlank site !! i
 
+  {- can make this fully usable outside of flank overlap by adding exactly one frame of noise -}
+
   -- roughly 30 seconds
 genMatSeq :: MatSeq (StateTree GenSNPState)
-(genMatSeq, genMatIxs@[[refIxs, altIxs]]) = snpsMatSeq Alone (map NoiseKey [0..noiseSize-1]) [genSite]
+(genMatSeq, genMatIxs@[[refIxs, altIxs]]) = snpsMatSeq Alone (map NoiseKey [0..noiseSize-1]) (-softFlankSize) softFlankSize [genSite]
 
 setStateContains matSeq nt =
   Set.fromList . map fst . filter (any (== nt) . fst . snd) . zip [1..] . V.toList . stateLabels $ matSeq
@@ -135,14 +138,6 @@ check ms = putStrLn $ show (trans ms # (100, 100))
 
 cleanTrans :: Trans -> Trans
 cleanTrans = addStartColumn . collapseEnds
-
--- writing this many tuples takes 11 seconds
-n :: Int
-n = 2807229
-tuples = zip3 [1..n] [n,n-1..1] (map sqrt [1..fromIntegral n :: Float])
-writeTuples fp = BS.writeFile fp . encode $ tuples
--- 6 seconds??????
-writeStateLabels fp = BS.writeFile fp . showStateLabels . stateLabels $ ms
 
 
 {-
