@@ -69,3 +69,6 @@ appendLabel label = V.map (\(s, ts) -> (s, StateTag label [ts]))
 
 reachableSkips :: Trans -> [Int]
 reachableSkips m = map fst . filter snd . zip [0..] . map M.isNotZeroVec . drop (nStates m) . allCols $ m
+
+stationary :: Int -> Trans
+stationary nStates = appendCol (M.zeroVec (nStates + 1)) . prependRow (M.zeroVec nStates) $ M.idMx nStates

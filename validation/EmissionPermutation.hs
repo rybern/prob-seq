@@ -23,10 +23,10 @@ kmerString = (\s -> "(" ++ s ++ ")") . intercalate "," . V.toList
 
 minionIndexMap = indexMap . V.map kmerString . permuteVector 5 . V.fromList . map return $ keyOrder
 
-minionKMerIndex :: Map String Int -> String -> Int
+minionKMerIndex :: (Ord a) => Map a Int -> a -> Int
 minionKMerIndex m k = let (Just ix) = Map.lookup k m in ix
 
-buildEmissionPerm :: Map String Int -> MatSeq String -> V.Vector Int
+buildEmissionPerm :: (Ord a) => Map a Int -> MatSeq a -> V.Vector Int
 buildEmissionPerm m = V.map (minionKMerIndex m . fst) . stateLabels
 
 writeEmissionPerm :: Map String Int -> FilePath -> MatSeq String -> IO ()

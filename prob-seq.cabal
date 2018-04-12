@@ -43,6 +43,7 @@ executable validation
                      , shmm
                      , hashable
                      , monad-loops
+                     , scientific
 
 executable profiling
   hs-source-dirs:      profiling

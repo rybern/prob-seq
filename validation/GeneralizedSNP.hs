@@ -1,9 +1,11 @@
-{-# LANGUAGE DeriveFunctor, TupleSections, BangPatterns, RecordWildCards, ViewPatterns #-}
+{-# LANGUAGE DeriveFunctor, OverloadedLists, TupleSections, BangPatterns, RecordWildCards, ViewPatterns #-}
 module GeneralizedSNP
   ( genSite
   , genMatSeq
+  , genMatSeq'
   , genMatIxs
   , specifyGenMatSeq
+  , snpsNTMatSeq''
   , specifyGenMatSeqNT
   , GenSNPState (..)
   ) where
@@ -29,11 +31,12 @@ data GenSNPState = NoiseKey Int
                  | Ref
                  | Alt
                  | RightFlank Int
+                 | Untracked
                  deriving (Eq, Show)
 
 flankSize = 10
 noiseSize = 4
-softFlankSize = 50
+softFlankSize = 10
 
 genSite :: Site GenSNPState
 genSite = Site {
@@ -56,8 +59,73 @@ specifySNPState _ site (RightFlank i) = rightFlank site !! i
 genMatSeq :: MatSeq (StateTree GenSNPState)
 (genMatSeq, genMatIxs@[[refIxs, altIxs]]) = snpsMatSeq Alone (map NoiseKey [0..noiseSize-1]) (-softFlankSize) softFlankSize [genSite]
 
+genMatSeq' = snpsMatSeq'
+  Alone
+  True
+  (Alone Untracked)
+  (- (length (leftFlank genSite)) - 1)
+  (length (rightFlank genSite) + 1)
+  [genSite]
+
+isRef Ref = True
+isRef _ = False
+isAlt Alt = True
+isAlt _ = False
+
+genMatSeqIxs' :: (GenSNPState -> Bool) -> Vector Int
+genMatSeqIxs' pred =
+    V.map fst
+  . V.filter (any pred . snd)
+  . V.imap (\i v -> (i, fst v))
+  $ stateLabels genMatSeq'
+
+genMatSeqAltIxs' = genMatSeqIxs' isAlt
+genMatSeqRefIxs' = genMatSeqIxs' isRef
+
+endNoiseMatSeq :: String -> Int -> MatSeq [NT]
+endNoiseMatSeq token ((* avgNTPerState) . fromIntegral -> expected) = buildMatSeq
+  $ geometricRepeat (1 / (1+expected)) (state token)
+
+snpsNTMatSeq'' :: String -> Int -> Int -> [Site NT] -> (MatSeq [NT], [[Vector Int]])
+snpsNTMatSeq'' token readStart readEnd sites =
+  (matSeq, ixs)
+  where liftSite :: Site a -> Site [a]
+        liftSite = fmap (\c -> [c])
+        --sites = map liftSite sites'
+        gms = genMatSeq'
+        specified = map (specifyGenMatSeqNT' gms) sites
+        regions :: [SNPCallerRegion [NT]]
+        regions = snpRegions readStart readEnd (map (fmap (\c -> [c])) sites)
+        nStates matSeq = V.length (stateLabels matSeq)
+        -- fold with (compiled sites, compiled sites+regions, site offsets, current offset)
+        (_, reverse -> seqs, reverse -> siteIxs, _) = foldl' takeRegion (specified, [], [], 0) regions
+        takeRegion (spec, matSeqs, sofar, n) (Noise exp) =
+          let ms = endNoiseMatSeq token exp
+          in ( spec
+             , ms : matSeqs
+             , sofar
+             , nStates ms + n )
+        takeRegion (spec, matSeqs, sofar, n ) noise@(Flank _) = ( spec, matSeqs, sofar, n )
+        takeRegion (next:rest, matSeqs, sofar, n) noise@(SNP _) =
+          ( rest, next : matSeqs, n : sofar, nStates next + n )
+
+        matSeq = buildMatSeq . series $ map matrixForm seqs
+
+        ixs = map (\siteOffset -> [ (siteOffset+) <$> genMatSeqRefIxs'
+                                  , (siteOffset+) <$> genMatSeqAltIxs']) siteIxs
+
+specifyGenMatSeqNT' :: MatSeq (StateTree GenSNPState)
+                   -> Site Char
+                   -> MatSeq [NT]
+specifyGenMatSeqNT' genMatSeq site =
+  mapStates ntTreeToString $ specifyGenMatSeq genMatSeq' genMatSeqIxSets' keyOrder site
+
 setStateContains matSeq nt =
   Set.fromList . map fst . filter (any (== nt) . fst . snd) . zip [1..] . V.toList . stateLabels $ matSeq
+
+genMatSeqIxSets' = let refSet = setStateContains genMatSeq' Ref
+                       altSet = setStateContains genMatSeq' Alt
+                   in (refSet, altSet, refSet `Set.union` altSet)
 
 genMatSeqIxSets = let refSet = setStateContains genMatSeq Ref
                       altSet = setStateContains genMatSeq Alt

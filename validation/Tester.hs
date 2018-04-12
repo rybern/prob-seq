@@ -3,17 +3,24 @@ module Tester where
 
 import Sequence
 import EmissionIO
+import Data.Scientific
 import Data.List
+import Data.Maybe
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Control.Monad.Random
 import qualified SHMM as SHMM
 import Sequence.Matrix.ProbSeqMatrixUtils
 import Math.LinearAlgebra.Sparse.Matrix hiding (trans)
+import Data.Set (Set)
+import qualified Data.Set as Set
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 import MinION
 import GeneralizedSNP
 import SNP
+import EmissionPermutation
 
 type StateIx = Int
 type RMSE = Double
@@ -23,8 +30,10 @@ data SimulationResult s = SimRes {
   , rmse :: RMSE
   , misclassify :: Double
   , post :: Emissions
+  , emissions :: Emissions
   , maxLabels :: Vector s
   , trueLabels :: Vector s
+  , indexMap :: Map s Int
   } deriving Show
 
 prettyPrintSimulationResult :: (Show s) => Bool -> SimulationResult s -> IO ()
@@ -40,36 +49,76 @@ prettyPrintSimulationResult showPost (SimRes {..}) = do
     prettyPrintEmissions post
 
 prettyPrintEmissions :: Emissions -> IO ()
-prettyPrintEmissions ems = forM_ ems $ putStrLn . ('\t':) . intercalate "\t" . V.toList . V.map show
+prettyPrintEmissions = mapM_ putStrLn . prettyPrintEmissionsLines
 
+prettyPrintEmissions2 :: [Emissions] -> IO ()
+prettyPrintEmissions2 = mapM_ putStrLn . map (intercalate " || ") . transpose . map prettyPrintEmissionsLines
+
+prettyPrintEmissionsLines :: Emissions -> [String]
+prettyPrintEmissionsLines ems = V.toList . flip V.map ems $ ('\t':) . intercalate "\t" . V.toList . V.map prettyPrintFloat
+
+prettyPrintFloat :: (RealFloat a) => a -> String
+prettyPrintFloat = formatScientific Generic (Just 3) . fromFloatDigits
+
+simulationSimple :: (Ord b) => Map b Int -> MatSeq b -> IO (SimulationResult b)
 simulationSimple = simulation simpleNoise
 
+simulationUniform :: (Ord b) => Prob -> Map b Int -> MatSeq b -> IO (SimulationResult b)
 simulationUniform p = simulation (uniformNoise p)
 
-simulation :: (Int -> StateIx -> Vector Prob) -> MatSeq b -> IO (SimulationResult b)
-simulation noise ms = do
-  (observations, truth) <- simulate noise ms
-  estimated <- posterior ms observations
+simulation :: (Ord b) => (Int -> StateIx -> Vector Prob) -> Map b Int -> MatSeq b -> IO (SimulationResult b)
+simulation noise indexMap ms = do
+  (observations, truth) <- simulate indexMap noise ms
+  estimated <- posterior indexMap ms observations
   return $ SimRes {
       states = truth
     , rmse = scoreRMSE truth estimated
     , misclassify = scoreMisclassify truth estimated
     , post = estimated
+    , emissions = observations
     , maxLabels = maxLabelPath ms estimated
     , trueLabels = V.map (fst . (stateLabels ms V.!)) truth
+    , indexMap = indexMap
     }
 
-posterior :: MatSeq a -> Emissions -> IO Emissions
-posterior ms observations = do
-  let ns = (nStates (trans ms))
-      permutation = [0..ns - 1]
+simulation2 :: (Ord b, Show b)
+            => (Int -> StateIx -> Vector Prob) -> Map b Int -> MatSeq b -> MatSeq b -> IO (SimulationResult b)
+simulation2 noise indexMap msSim msModel = do
+  (observations, truth) <- simulate indexMap noise msSim
+  estimated <- posterior indexMap msModel observations
+  return $ SimRes {
+      states = truth
+    , rmse = scoreRMSE truth estimated
+    , misclassify = scoreMisclassify truth estimated
+    , post = estimated
+    , emissions = observations
+    , maxLabels = maxLabelPath msModel estimated
+    , trueLabels = V.map (fst . (stateLabels msSim V.!)) truth
+    , indexMap = indexMap
+    }
+
+posterior :: (Ord a) => Map a Int -> MatSeq a -> Emissions -> IO Emissions
+posterior indexMap ms observations = do
+  let ns = nStates (trans ms)
       triples = matSeqTriples ms
+      permutation = buildEmissionPerm indexMap ms
+  print $ "ns: " ++ show ns
+  print $ "n triples: " ++ show (length triples)
+  print $ "max row triples: " ++ show (maximum (map (\(x, _, _) -> x) triples))
+  print $ "max col triples: " ++ show (maximum (map (\(_, x, _) -> x) triples))
+  print $ "permutation length: " ++ show (V.length permutation)
+  print $ "permutation min: " ++ show (V.minimum permutation)
+  print $ "permutation max: " ++ show (V.maximum permutation)
+  print $ "observations rows: " ++ show (V.length observations)
+  print $ "observations min cols: " ++ show (V.minimum (V.map V.length observations))
+  print $ "observations max cols: " ++ show (V.maximum (V.map V.length observations))
   post <- SHMM.shmmFull ns triples observations permutation
+  print $ "called shmm got " ++ show (V.length post)
   let post' = V.map (V.tail . V.init) $ post
   return post
 
-
-
+defaultIndexMap :: (Ord a) => MatSeq a -> Map a Int
+defaultIndexMap = Map.fromList . flip zip [0..] . nub . map fst . V.toList . stateLabels
 
 matSeqTriples :: MatSeq a
               -> [(Int, Int, Double)]
@@ -78,16 +127,21 @@ matSeqTriples = map (\((r, c), p) -> (r - 1, c - 1, p)) . tail . toAssocList . c
 cleanTrans :: Trans -> Trans
 cleanTrans = addStartColumn . collapseEnds
 
-simulate :: (MonadRandom m) => (Int -> StateIx -> Vector Prob) -> MatSeq a -> m (Emissions, Vector StateIx)
-simulate observe ms = do
+simulate :: (Ord a, MonadRandom m)
+         => Map a Int -> (Int -> StateIx -> Vector Prob) -> MatSeq a -> m (Emissions, Vector StateIx)
+simulate indexMap observe ms = do
+  --let ixs = [1367,1370,1374,1376,1380,1383,1384,1389,1406,1480,2992,2861,1854,1918,3200,3202,3205,3211,3213,3218,3239,3303,4568,4523,4177,4220,3884,3854,3714,4259,4310,4514,4305,4495,4268,4347]
+  --let ixs = [7,15,17,21,23,24,25,29,43,326,760,536,663]
+  --let ixs = [1367,1370,1372,1374,1378,1381,1389,1708,2680,2203,2067,2072,2155,2421,2461,2619,2227,2087]
   (ixs, _) <- sampleSeqIxs vecDist ms
-  let len = length . stateLabels $ ms
-      observations = V.map (observe len) ixs
+  let emIxs = V.map (fromJust . flip Map.lookup indexMap . fst . (stateLabels ms V.!)) ixs
+      len = Map.size indexMap
+      observations = V.map (observe len) emIxs
   return (observations, ixs)
 
-uniformNoise :: Prob -> Int -> StateIx -> Vector Prob
-uniformNoise pnt len ix = V.replicate len other V.// [(ix, pnt)]
-  where other = (1 - pnt) / fromIntegral len
+uniformNoise :: Double -> Int -> StateIx -> Vector Prob
+uniformNoise coef len ix = V.replicate len base V.// [(ix, coef * base)]
+  where base = 1 / (fromIntegral len - 1 + coef)
 
 simpleNoise :: Int -> StateIx -> Vector Prob
 simpleNoise = onehot
@@ -127,20 +181,17 @@ window = buildMatSeq . minion . series $ [
   ]
   where series' = series . map (state . return)
 
-{-
-focus entirely on getting the simulation to a reasonable place.
-my current theory is that there is no right noise
--}
 
 testCalling :: IO ()
 testCalling = do
   let site = Site {pos = 50, alleles = [('X', 0.5), ('Y', 0.5)] , leftFlank = "ABCDEF" , rightFlank = "fedcba"}
   let (ms, [[refIxs, altIxs]]) = snpsNTMatSeq 0 100 [site]
       regions = snpRegions 0 100 [site]
+      indexMap = defaultIndexMap ms
 
   print regions
 
-  res <- simulationUniform 0.02 ms
+  res <- simulation2 (uniformNoise 2) indexMap ms ms
 
   let post' = post res
       altVec = V.map (\row -> sum $ V.map (row V.!) altIxs) post'
@@ -163,3 +214,124 @@ progressString start pnt end =
     ", " ++ show (100 * fromIntegral (pnt - start) / fromIntegral (end - start)) ++
     "%)/" ++ show end
 
+ms1 = buildMatSeq $ series [
+    geometricRepeat (1 - 1/10) (uniformDistOver [state "A", state "B"])
+  , eitherOr 0.5 (series [state "C", state "D"]) (series [state "E", state "D"])
+  , geometricRepeat (1 - 1/10) (uniformDistOver [state "A", state "B"])
+  ]
+
+ms2 = buildMatSeq $ series [
+    geometricRepeat (1 - 1/10) (state "_")
+  , eitherOr 0.5 (series [state "C", state "D"]) (series [state "E", state "D"])
+  , geometricRepeat (1 - 1/10) (state "_")
+  ]
+
+noiseWithToken :: Prob -> (Int -> StateIx -> Vector Prob) -> Int -> StateIx -> Vector Prob
+noiseWithToken pToken noise len ix = (((1 - pToken) *) <$> noise (pred len) ix) `V.snoc` pToken
+
+addTokenToIndexMap :: (Ord a) => a -> Map a Int -> Map a Int
+addTokenToIndexMap tokenKey indexMap = Map.insert tokenKey (Map.size indexMap) indexMap
+
+testSplit :: IO ()
+testSplit = do
+  res <- simulation2 (noiseWithToken 0.2 (uniformNoise 2)) (addTokenToIndexMap "_" $ defaultIndexMap ms1) ms1 ms2
+  prettyPrintSimulationResult False res
+
+{-
+object is the size of the indexMap
+
+*** Exception: ./Data/Vector/Generic/Mutable.hs:845 (update): index out of bounds (1570,1462)
+CallStack (from HasCallStack):
+  error, called at ./Data/Vector/Internal/Check.hs:87:5 in vector-0.12.0.0-DGP48m6Q6tLL7qSICSsTxc:Data.Vector.Internal.Check
+
+probably something to do with indexMap
+
+-}
+n = 1
+repeatN :: Int -> [a] -> [a]
+repeatN n = concat . replicate n
+
+site1 = Site {
+    pos = n*50
+  , alleles = [('W', 0.5), ('X', 0.5)]
+  , leftFlank = repeatN n "ABCDEFGHIJ"
+  , rightFlank = repeatN n "jihgfedcba"
+  }
+site2 = Site {
+    pos = n*70
+  , alleles = [('Y', 0.5), ('Z', 0.5)]
+  , leftFlank = repeatN n "ABCDEFGHIJ"
+  , rightFlank = repeatN n "jihgfedcba"
+  }
+
+reverseSite :: Site a -> Site a
+reverseSite site = site {
+    leftFlank = reverse (leftFlank site)
+  , rightFlank = reverse (rightFlank site)
+  }
+
+reverseSites :: [Site a] -> [Site a]
+reverseSites = reverse . map reverseSite
+
+
+sites = [site1]
+(cms1, ixs1) = snpsNTMatSeq (n*0) (n*100) sites
+
+token = "_"
+(cms2, ixs2) = snpsNTMatSeq'' token (n*0) (n*100) sites
+
+cIndexMap = addTokenToIndexMap token $ defaultIndexMap cms1
+
+avgSimulationSize :: MatSeq s -> IO Double
+avgSimulationSize ms = (\xs -> fromIntegral (sum xs) / fromIntegral (length xs)) <$> replicateM 10000 (length . fst <$> sampleSeq vecDist ms)
+
+showIxs :: MatSeq [NT] -> [[Vector Int]] -> IO ()
+showIxs ms ixs = forM_ ixs $ \[refIxs, altIxs] -> do
+  putStrLn "ref:"
+  forM_ refIxs $ \ix -> do
+    putStrLn $ "\t\t" ++ show (stateLabels ms V.! ix)
+  putStrLn ""
+  putStrLn "alt:"
+  forM_ altIxs $ \ix -> do
+    putStrLn $ "\t" ++ show (stateLabels ms V.! ix)
+  putStrLn ""
+
+extractSets :: Emissions -> [[Vector Int]] -> [[Emissions]]
+extractSets ems = map (map (extractSet ems))
+-- correctly more likely once aligned
+-- not aligning very well
+extractSet :: Emissions -> Vector Int -> Emissions
+extractSet ems ixs = V.map (\row -> V.map (row V.!) ixs) ems
+
+testCalling2 :: IO (SimulationResult [NT])
+testCalling2 = do
+  res <- simulation2 (noiseWithToken 0.05 (uniformNoise 10)) cIndexMap cms1 cms2
+
+  forM_ (zip3 ixs1 ixs2 sites) $ \([ref1, alt1], [ref2, alt2], site) -> do
+    let isRef = (V.any (flip V.elem ref1) (states res))
+        trueAllele = let [ref, alt] = map return . map fst . alleles $ site
+                     in if isRef then ref else alt
+    putStrLn $ "truly allele is " ++ (if isRef then "ref" else "alt") ++ " (" ++ trueAllele ++ ")"
+
+    let altVec = extractSet (post res) alt2
+        refVec = extractSet (post res) ref2
+        altP = sum (V.map sum altVec)
+        refP = sum (V.map sum refVec)
+        p = altP / (altP + refP)
+
+    putStrLn $ "post p(alt) is " ++ show p
+  return res
+
+  {-
+
+the token mixes in sequence level events with minion level events, it makes n tokens with n distributed like the number of underlying loci but never applies skipping or collapsing to the tokens, so it'll be off
+
+["(D,E,F,G,H)","(G,H,I,J,W)","(I,J,W,j,i)","(J,W,j,i,h)","(j,i,h,g,f)","(g,f,e,d,c)","(f,e,d,c,b)","(d,c,b,a,T)","(c,b,a,T,C)","(b,a,T,C,G)","(T,C,G,C,T)","(T,A,A,A,A)","(A,A,A,A,B)","(A,A,A,B,C)","(C,D,E,F,G)","(E,F,G,H,I)","(G,H,I,J,Z)","(J,Z,j,i,h)","(Z,j,i,h,g)","(f,e,d,c,b)","(c,b,a,T,T)","(b,a,T,T,T)","(T,T,T,A,A)","(T,T,A,A,T)","(G,C,G,G,C)","(G,G,C,C,A)","(C,C,A,C,A)","(C,A,G,C,G)","(A,G,C,G,G)","(G,G,T,G,T)","(G,T,G,T,G)","(T,G,T,G,G)","(G,T,G,G,C)","(T,G,G,C,T)","(G,T,A,C,A)","(T,A,C,A,T)"]
+
+no immediate bugs in the test setup
+
+
+however, I would expect at least a 10* difference between altP and refP if alignment is working properly, and alignment should easily be working properly with 50 flank
+
+
+-}

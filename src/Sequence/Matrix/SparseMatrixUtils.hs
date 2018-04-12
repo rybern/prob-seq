@@ -78,7 +78,13 @@ onehotVector :: (Eq a, Fractional a) => M.Index -> Int -> M.SparseVector a
 onehotVector hot len = M.vecIns (M.zeroVec len) (hot, 1.0)
 
 normalize :: (Num a, Fractional a) => M.SparseMatrix a -> M.SparseMatrix a
-normalize = M.mapOnRows (\r -> (/ sum r) <$> r)
+normalize = M.mapOnRows normalizeVec
+
+normalizeVec :: (Num a, Fractional a) => M.SparseVector a -> M.SparseVector a
+normalizeVec r = (/ sum r) <$> r
+
+mapRow :: (Num a, Fractional a) => Int -> (M.SparseVector a -> M.SparseVector a) -> M.SparseMatrix a -> M.SparseMatrix a
+mapRow ix f m = M.replaceRow (f (M.row m ix)) ix m
 
 colMx :: (Eq a, Num a, Fractional a) => M.SparseVector a -> M.SparseMatrix a
 colMx = M.trans . M.fromRows . (\x -> [x])

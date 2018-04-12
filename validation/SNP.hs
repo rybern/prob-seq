@@ -26,20 +26,22 @@ data SNPCallerRegion a = SNP [(a, Prob)]
 regionProbSeq :: [a] -> SNPCallerRegion a -> ProbSeq a
 regionProbSeq keyOrder (SNP nts) = finiteDistOver . map (\(nt, p) -> (state nt, p)) $ nts
 regionProbSeq keyOrder (Flank nts) = series . map state $ nts
-regionProbSeq keyOrder (Noise expected) = geometricRepeat (1 - 1 / fromIntegral expected) noise
+regionProbSeq keyOrder (Noise expected) = geometricRepeat (1 / (1 + fromIntegral expected)) noise
   where noise = uniformDistOver (map state keyOrder)
 
 regionsProbSeq :: [a] -> [SNPCallerRegion a] -> ProbSeq a
 regionsProbSeq keyOrder = series . map (regionProbSeq keyOrder)
 
 -- TODO: estimate starting and ending positions
+-- need to start and end with noise of at least length 2.
+--  geometric with length 1 does not accept strings of longer than 1
 snpRegions :: Int -> Int -> [Site a] -> [SNPCallerRegion a]
 snpRegions readStart readEnd sites =
   let end = last sites
       first = head sites
-  in flankBetween readStart Nothing (Just $ leftFlank first) (pos first)
+  in flankBetween True readStart Nothing (Just $ leftFlank first) (pos first)
      ++ go sites
-     ++ flankBetween (pos end) (Just $ rightFlank end) Nothing readEnd
+     ++ flankBetween True (pos end) (Just $ rightFlank end) Nothing readEnd
   where go (a:b:rest) = siteSNP a : siteFlankBetween a b ++ go (b:rest)
         go [a] = [siteSNP a]
         go [] = []
@@ -48,19 +50,32 @@ siteSNP :: Site a -> SNPCallerRegion a
 siteSNP a = SNP (alleles a)
 
 siteFlankBetween :: Site a -> Site a -> [SNPCallerRegion a]
-siteFlankBetween a b = flankBetween (pos a) (Just $ rightFlank a) (Just $ leftFlank b) (pos b)
+siteFlankBetween a b = flankBetween False (pos a) (Just $ rightFlank a) (Just $ leftFlank b) (pos b)
 
   -- assume a is earlier than b!
-flankBetween :: Int -> Maybe [a] -> Maybe [a] -> Int -> [SNPCallerRegion a]
-flankBetween aLoc maybeAFlank maybeBFlank bLoc = regions
-  where regions = if noiseDist > 0
-                  then catMaybes [Flank <$> maybeAFlank, Just $ Noise noiseDist, Flank <$> maybeBFlank]
+flankBetween :: Bool -> Int -> Maybe [a] -> Maybe [a] -> Int -> [SNPCallerRegion a]
+flankBetween forceNoise aLoc maybeAFlank maybeBFlank bLoc = regions
+  where regions = if noiseDist' > 0
+                  then catMaybes [Flank <$> maybeAFlank, Just $ Noise noiseDist', Flank <$> maybeBFlank]
                   else [Flank (take dist aFlank ++ drop (length bFlank - (dist - length aFlank)) bFlank)]
         aFlank = fromMaybe [] maybeAFlank
         bFlank = fromMaybe [] maybeBFlank
-        dist = bLoc - aLoc - 1
+        dist = abs $ bLoc - aLoc - 1
         sumFlankLen = length aFlank + length bFlank
-        noiseDist = dist - sumFlankLen
+        noiseDist' = if forceNoise
+                     then max 2 $ noiseDist aLoc maybeAFlank maybeBFlank bLoc
+                     else noiseDist aLoc maybeAFlank maybeBFlank bLoc
+
+noiseDist :: Int -> Maybe [a] -> Maybe [a] -> Int -> Int
+noiseDist aLoc maybeAFlank maybeBFlank bLoc = if noiseDist' > 0
+                                              then max noiseDist' 2
+                                              else noiseDist'
+  where aFlank = fromMaybe [] maybeAFlank
+        bFlank = fromMaybe [] maybeBFlank
+        dist = abs $ bLoc - aLoc - 1
+        sumFlankLen = length aFlank + length bFlank
+        noiseDist' = dist - sumFlankLen
+
 
 siteDistance :: Site a -> Site a -> Int
 siteDistance a b = pos b - pos a - 1
@@ -106,6 +121,31 @@ snpsNTMatSeq :: Int -> Int -> [Site NT] -> (MatSeq [NT], [[Vector Int]])
 snpsNTMatSeq = snpsMatSeq (\a -> [a]) keyOrder
 
 -- make generic module, type for each location in snp site region, make site-swapping half of the specifying function
+
+regionProbSeq' :: a -> SNPCallerRegion a -> ProbSeq a
+regionProbSeq' token (SNP nts) = finiteDistOver . map (\(nt, p) -> (state nt, p)) $ nts
+regionProbSeq' token (Flank nts) = series . map state $ nts
+regionProbSeq' token (Noise expected) = geometricRepeat (1 / (1 + avgNTPerState * fromIntegral expected)) (state token)
+
+isNoise (Noise _) = True
+isNoise _ = False
+
+regionsProbSeq' :: (Joinable a) => a -> [SNPCallerRegion a] -> ProbSeq a
+regionsProbSeq' token = series . regionsProbSeq
+  where regionsProbSeq regions = case break isNoise regions of
+          ([], []) -> []
+          ([], (noise@(Noise _)):rest) -> regionProbSeq' token noise : regionsProbSeq rest
+          (nonNoise, rest) -> (minion . series . map (regionProbSeq' token) $ nonNoise) : regionsProbSeq rest
+
+
+snpsMatSeq' :: (Joinable b, Eq b) => (a -> b) -> Bool -> b -> Int -> Int -> [Site a] -> MatSeq b
+snpsMatSeq' toJoinable noNoise token readStart readEnd (map (toJoinable <$>) -> sites) =
+  matSeq
+  where regions = let regions' = snpRegions readStart readEnd sites
+                  in if noNoise
+                     then tail . init $ regions'
+                     else regions'
+        matSeq = buildMatSeq $ regionsProbSeq' token regions
 
 snpsMatSeq :: (Joinable b, Eq b) => (a -> b) -> [a] -> Int -> Int -> [Site a] -> (MatSeq b, [[Vector Int]])
 snpsMatSeq toJoinable (map toJoinable -> keyOrder) readStart readEnd (map (toJoinable <$>) -> sites) =
