@@ -1,6 +1,7 @@
 module Sequence.Matrix.ProbSeqMatrixUtils where
 
-import qualified Math.LinearAlgebra.Sparse as M
+--import qualified Math.LinearAlgebra.Sparse as M
+import qualified SparseMatrix as M
 import Sequence.Matrix.SparseMatrixUtils
 import Sequence.Matrix.Types
 import Sequence.Matrix.SparseMatrixUtils

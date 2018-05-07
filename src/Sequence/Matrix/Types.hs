@@ -9,7 +9,8 @@ module Sequence.Matrix.Types
 
 import Sequence.Types
 import qualified Data.Vector as V
-import qualified Math.LinearAlgebra.Sparse as M
+--import qualified Math.LinearAlgebra.Sparse as M
+import qualified SparseMatrix as M
 
 type Dist = M.SparseVector Prob
 type Trans = M.SparseMatrix Prob

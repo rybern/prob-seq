@@ -1,6 +1,7 @@
 module Sequence.Matrix.SparseMatrixUtils where
 
-import qualified Math.LinearAlgebra.Sparse as M
+--import qualified Math.LinearAlgebra.Sparse as M
+import qualified SparseMatrix as M
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Sequence.Matrix.Types

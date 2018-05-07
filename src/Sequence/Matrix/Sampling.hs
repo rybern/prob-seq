@@ -1,6 +1,7 @@
 module Sequence.Matrix.Sampling where
 
-import qualified Math.LinearAlgebra.Sparse as M
+--import qualified Math.LinearAlgebra.Sparse as M
+import qualified SparseMatrix as M
 import qualified Data.Vector as V
 import Sequence.Matrix.Operations
 import Sequence.Matrix.Types

@@ -13,7 +13,8 @@ import Sequence.Matrix.Operations.AndThen
 import Sequence.Matrix.Operations.Deterministic
 import Control.Monad
 import qualified Data.Vector as V
-import qualified Math.LinearAlgebra.Sparse as M
+--import qualified Math.LinearAlgebra.Sparse as M
+import qualified SparseMatrix as M
 
 endAfterStepsProbability :: MatSeq s -> Int -> Int -> Prob
 endAfterStepsProbability seq n end = endAfterStepsProbability' (squareMain, ends) n end 1

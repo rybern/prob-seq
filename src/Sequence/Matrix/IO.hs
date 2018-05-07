@@ -11,7 +11,8 @@ module Sequence.Matrix.IO
 
 import System.FilePath.Posix
 import System.IO
-import qualified Math.LinearAlgebra.Sparse as M
+--import qualified Math.LinearAlgebra.Sparse as M
+import qualified SparseMatrix as M
 
 import Sequence.Matrix.ProbSeqMatrixUtils
 import Sequence.Matrix.Types

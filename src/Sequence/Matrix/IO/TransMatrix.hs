@@ -5,7 +5,8 @@ import qualified Data.Vector as V
 import Data.Vector (Vector)
 
 import Sequence.Matrix.Types
-import qualified Math.LinearAlgebra.Sparse as M
+--import qualified Math.LinearAlgebra.Sparse as M
+import qualified SparseMatrix as M
 
 import Data.Csv hiding (Parser)
 import qualified Data.ByteString.Lazy as BS
