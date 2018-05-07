@@ -1,14 +1,5 @@
 {-# LANGUAGE DeriveFunctor, OverloadedLists, TupleSections, BangPatterns, RecordWildCards, ViewPatterns #-}
-module GeneralizedSNP
-  ( genSite
-  , genMatSeq
-  , genMatSeq'
-  , genMatIxs
-  , specifyGenMatSeq
-  , snpsNTMatSeq''
-  , specifyGenMatSeqNT
-  , GenSNPState (..)
-  ) where
+module GeneralizedSNP where
 
 import SNP
 import Data.List
@@ -34,12 +25,12 @@ data GenSNPState = NoiseKey Int
                  | Untracked
                  deriving (Eq, Show)
 
-flankSize = 10
+flankSize = 50
 noiseSize = 4
-softFlankSize = 10
+softFlankSize = 20
 
-genSite :: Site GenSNPState
-genSite = Site {
+genSite :: Int -> Site GenSNPState
+genSite flankSize = Site {
     pos = 0
   , alleles = [(Ref, 0.5), (Alt, 0.5)]
   , leftFlank = map LeftFlank [0..flankSize-1]
@@ -57,43 +48,43 @@ specifySNPState _ site (RightFlank i) = rightFlank site !! i
 
   -- roughly 30 seconds
 genMatSeq :: MatSeq (StateTree GenSNPState)
-(genMatSeq, genMatIxs@[[refIxs, altIxs]]) = snpsMatSeq Alone (map NoiseKey [0..noiseSize-1]) (-softFlankSize) softFlankSize [genSite]
+(genMatSeq, genMatIxs@[[refIxs, altIxs]]) = snpsMatSeq Alone (map NoiseKey [0..noiseSize-1]) (-softFlankSize) softFlankSize [genSite flankSize]
 
-genMatSeq' = snpsMatSeq'
+genMatSeq' flankSize = snpsMatSeq'
   Alone
   True
   (Alone Untracked)
-  (- (length (leftFlank genSite)) - 1)
-  (length (rightFlank genSite) + 1)
-  [genSite]
+  (- (length (leftFlank (genSite flankSize))) - 1)
+  (length (rightFlank (genSite flankSize)) + 1)
+  [(genSite flankSize)]
 
 isRef Ref = True
 isRef _ = False
 isAlt Alt = True
 isAlt _ = False
 
-genMatSeqIxs' :: (GenSNPState -> Bool) -> Vector Int
-genMatSeqIxs' pred =
+genMatSeqIxs' :: Int -> (GenSNPState -> Bool) -> Vector Int
+genMatSeqIxs' flankSize pred =
     V.map fst
   . V.filter (any pred . snd)
   . V.imap (\i v -> (i, fst v))
-  $ stateLabels genMatSeq'
+  $ stateLabels (genMatSeq' flankSize)
 
-genMatSeqAltIxs' = genMatSeqIxs' isAlt
-genMatSeqRefIxs' = genMatSeqIxs' isRef
+genMatSeqAltIxs' flankSize = genMatSeqIxs' flankSize isAlt
+genMatSeqRefIxs' flankSize = genMatSeqIxs' flankSize isRef
 
 endNoiseMatSeq :: String -> Int -> MatSeq [NT]
-endNoiseMatSeq token ((* avgNTPerState) . fromIntegral -> expected) = buildMatSeq
+endNoiseMatSeq token ((* avgEventsPerNT) . fromIntegral -> expected) = buildMatSeq
   $ geometricRepeat (1 / (1+expected)) (state token)
 
-snpsNTMatSeq'' :: String -> Int -> Int -> [Site NT] -> (MatSeq [NT], [[Vector Int]])
-snpsNTMatSeq'' token readStart readEnd sites =
+snpsNTMatSeq'' :: Int -> String -> Int -> Int -> [Site NT] -> (MatSeq [NT], [[Vector Int]])
+snpsNTMatSeq'' flankSize token readStart readEnd sites =
   (matSeq, ixs)
   where liftSite :: Site a -> Site [a]
         liftSite = fmap (\c -> [c])
         --sites = map liftSite sites'
-        gms = genMatSeq'
-        specified = map (specifyGenMatSeqNT' gms) sites
+        gms = genMatSeq' flankSize
+        specified = map (specifyGenMatSeqNT' flankSize gms) sites
         regions :: [SNPCallerRegion [NT]]
         regions = snpRegions readStart readEnd (map (fmap (\c -> [c])) sites)
         nStates matSeq = V.length (stateLabels matSeq)
@@ -111,20 +102,20 @@ snpsNTMatSeq'' token readStart readEnd sites =
 
         matSeq = buildMatSeq . series $ map matrixForm seqs
 
-        ixs = map (\siteOffset -> [ (siteOffset+) <$> genMatSeqRefIxs'
-                                  , (siteOffset+) <$> genMatSeqAltIxs']) siteIxs
+        ixs = map (\siteOffset -> [ (siteOffset+) <$> genMatSeqRefIxs' flankSize
+                                  , (siteOffset+) <$> genMatSeqAltIxs' flankSize]) siteIxs
 
-specifyGenMatSeqNT' :: MatSeq (StateTree GenSNPState)
+specifyGenMatSeqNT' :: Int -> MatSeq (StateTree GenSNPState)
                    -> Site Char
                    -> MatSeq [NT]
-specifyGenMatSeqNT' genMatSeq site =
-  mapStates ntTreeToString $ specifyGenMatSeq genMatSeq' genMatSeqIxSets' keyOrder site
+specifyGenMatSeqNT' flankSize genMatSeq site =
+  mapStates ntTreeToString $ specifyGenMatSeq (genMatSeq' flankSize) genMatSeqIxSets' keyOrder site
 
 setStateContains matSeq nt =
   Set.fromList . map fst . filter (any (== nt) . fst . snd) . zip [1..] . V.toList . stateLabels $ matSeq
 
-genMatSeqIxSets' = let refSet = setStateContains genMatSeq' Ref
-                       altSet = setStateContains genMatSeq' Alt
+genMatSeqIxSets' = let refSet = setStateContains (genMatSeq' flankSize) Ref
+                       altSet = setStateContains (genMatSeq' flankSize) Alt
                    in (refSet, altSet, refSet `Set.union` altSet)
 
 genMatSeqIxSets = let refSet = setStateContains genMatSeq Ref

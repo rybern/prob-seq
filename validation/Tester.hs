@@ -17,6 +17,7 @@ import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import Plot
 import MinION
 import GeneralizedSNP
 import SNP
@@ -123,9 +124,6 @@ defaultIndexMap = Map.fromList . flip zip [0..] . nub . map fst . V.toList . sta
 matSeqTriples :: MatSeq a
               -> [(Int, Int, Double)]
 matSeqTriples = map (\((r, c), p) -> (r - 1, c - 1, p)) . tail . toAssocList . cleanTrans . trans
-
-cleanTrans :: Trans -> Trans
-cleanTrans = addStartColumn . collapseEnds
 
 simulate :: (Ord a, MonadRandom m)
          => Map a Int -> (Int -> StateIx -> Vector Prob) -> MatSeq a -> m (Emissions, Vector StateIx)
@@ -247,9 +245,10 @@ CallStack (from HasCallStack):
 probably something to do with indexMap
 
 -}
-n = 1
+n = 2
 repeatN :: Int -> [a] -> [a]
 repeatN n = concat . replicate n
+flankSize = n * 10
 
 site1 = Site {
     pos = n*50
@@ -274,11 +273,12 @@ reverseSites :: [Site a] -> [Site a]
 reverseSites = reverse . map reverseSite
 
 
+
 sites = [site1]
 (cms1, ixs1) = snpsNTMatSeq (n*0) (n*100) sites
 
 token = "_"
-(cms2, ixs2) = snpsNTMatSeq'' token (n*0) (n*100) sites
+(cms2, ixs2) = snpsNTMatSeq'' Tester.flankSize token (n*0) (n*100) sites
 
 cIndexMap = addTokenToIndexMap token $ defaultIndexMap cms1
 
@@ -303,11 +303,12 @@ extractSets ems = map (map (extractSet ems))
 extractSet :: Emissions -> Vector Int -> Emissions
 extractSet ems ixs = V.map (\row -> V.map (row V.!) ixs) ems
 
-testCalling2 :: IO (SimulationResult [NT])
-testCalling2 = do
-  res <- simulation2 (noiseWithToken 0.05 (uniformNoise 10)) cIndexMap cms1 cms2
+testCalling2 :: Int -> Double -> IO Double --(SimulationResult [NT])
+testCalling2 flankSize p = do
+  let (cms2, ixs2) = snpsNTMatSeq'' flankSize token (n*0) (n*100) sites
+  res <- simulation2 (noiseWithToken 0.05 (uniformNoise p)) cIndexMap cms1 cms2
 
-  forM_ (zip3 ixs1 ixs2 sites) $ \([ref1, alt1], [ref2, alt2], site) -> do
+  ps <- forM (zip3 ixs1 ixs2 sites) $ \([ref1, alt1], [ref2, alt2], site) -> do
     let isRef = (V.any (flip V.elem ref1) (states res))
         trueAllele = let [ref, alt] = map return . map fst . alleles $ site
                      in if isRef then ref else alt
@@ -317,21 +318,36 @@ testCalling2 = do
         refVec = extractSet (post res) ref2
         altP = sum (V.map sum altVec)
         refP = sum (V.map sum refVec)
-        p = altP / (altP + refP)
+        pPref = altP / (altP + refP)
 
-    putStrLn $ "post p(alt) is " ++ show p
-  return res
+        --isAlt = V.any (any (== 'W')) . trueLabels $ res
+        pTrue = if isRef then 0.0 else 1.0
+        err = abs (pPref - pTrue)
 
-  {-
+    putStrLn $ "post p(alt) is " ++ show pPref
+    putStrLn $ "error is " ++ show err
+    return err
+  return (mean ps)
 
-the token mixes in sequence level events with minion level events, it makes n tokens with n distributed like the number of underlying loci but never applies skipping or collapsing to the tokens, so it'll be off
+mean :: Floating a => [a] -> a
+mean xs = sum xs / fromIntegral (length xs)
 
-["(D,E,F,G,H)","(G,H,I,J,W)","(I,J,W,j,i)","(J,W,j,i,h)","(j,i,h,g,f)","(g,f,e,d,c)","(f,e,d,c,b)","(d,c,b,a,T)","(c,b,a,T,C)","(b,a,T,C,G)","(T,C,G,C,T)","(T,A,A,A,A)","(A,A,A,A,B)","(A,A,A,B,C)","(C,D,E,F,G)","(E,F,G,H,I)","(G,H,I,J,Z)","(J,Z,j,i,h)","(Z,j,i,h,g)","(f,e,d,c,b)","(c,b,a,T,T)","(b,a,T,T,T)","(T,T,T,A,A)","(T,T,A,A,T)","(G,C,G,G,C)","(G,G,C,C,A)","(C,C,A,C,A)","(C,A,G,C,G)","(A,G,C,G,G)","(G,G,T,G,T)","(G,T,G,T,G)","(T,G,T,G,G)","(G,T,G,G,C)","(T,G,G,C,T)","(G,T,A,C,A)","(T,A,C,A,T)"]
+xticks :: [Double]
+xticks = [2, 5, 10, 15, 20, 25, 30, 40, 50]
+repeats = 10
+errPoint :: Double -> IO Double
+errPoint = (mean <$>) . replicateM repeats . testCalling2 1
 
-no immediate bugs in the test setup
+errPoints :: IO [(Double, Double)]
+errPoints = zip xticks <$> mapM errPoint xticks
 
+flankTicks :: [Int]
+flankTicks = [10,20..50]
+errPoint' :: Int -> IO Double
+errPoint' flankSize = (mean <$>) . replicateM repeats $ testCalling2 flankSize 30
 
-however, I would expect at least a 10* difference between altP and refP if alignment is working properly, and alignment should easily be working properly with 50 flank
+errPoints' :: IO [(Double, Double)]
+errPoints' = zip (map fromIntegral flankTicks) <$> mapM errPoint' flankTicks
 
-
--}
+pts :: [(Double, Double)]
+pts = [(2.0,0.4981651132396747),(5.0,0.4896712778189328),(10.0,0.46877311841114044),(15.0,0.4472552843617038),(20.0,0.43254715918499764),(25.0,0.3678726335210324),(30.0,0.26440086960393167),(40.0,0.2206910165519158),(50.0,0.10865170115692621)]

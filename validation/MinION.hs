@@ -50,9 +50,20 @@ rounded:
 this gives an expected nt per event of 0.26. this is corroborated by the average number of events per sequence by poretools, but there seems to be a wide variance, maybe event bimodal. many files i've examined seem to be around 0.4.
 -}
 
+minionSkipDist :: [Double]
+minionSkipDist = [0.753009,0.232925,0.013999,0.000005,0.000016,0.000047]
+--minionSkipDist = [0.4589887640449438,0.5334269662921348,7.584269662921348e-3]
+--minionSkipDist = [0.44892576515193144,0.5217319632946865,9.780757184460684e-3,9.780757184460684e-3,9.780757184460684e-3]
+
+
 minion :: (Joinable a) => ProbSeq a -> ProbSeq a
-minion = skipDist [0.753009,0.232925,0.013999,0.000005,0.000016,0.000047]
+minion = skipDist minionSkipDist
        . collapse undefined join 5
 
-avgNTPerState :: Double
-avgNTPerState = 0.42702999999999974
+calcAvgEventsPerNT :: Double
+calcAvgEventsPerNT = recip . sum $ zipWith (*) [0..] minionSkipDist
+
+avgEventsPerNT :: Double
+avgEventsPerNT = 3.827941677480602  --1.639992790844372 --1.822836661546339 -- 0.427 
+
+

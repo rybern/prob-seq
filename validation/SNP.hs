@@ -125,7 +125,7 @@ snpsNTMatSeq = snpsMatSeq (\a -> [a]) keyOrder
 regionProbSeq' :: a -> SNPCallerRegion a -> ProbSeq a
 regionProbSeq' token (SNP nts) = finiteDistOver . map (\(nt, p) -> (state nt, p)) $ nts
 regionProbSeq' token (Flank nts) = series . map state $ nts
-regionProbSeq' token (Noise expected) = geometricRepeat (1 / (1 + avgNTPerState * fromIntegral expected)) (state token)
+regionProbSeq' token (Noise expected) = geometricRepeat (1 / (1 + avgEventsPerNT * fromIntegral expected)) (state token)
 
 isNoise (Noise _) = True
 isNoise _ = False

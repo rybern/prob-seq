@@ -33,6 +33,14 @@ plotLinesFromFile inFile fn outFile title xaxis yaxis (lowerY, upperY) = do
     forM_ ls $ \(ys, name) -> do
       plot (line name [(zip xs ys)])
 
+plotPoints :: FilePath
+           -> [(Double, Double)]
+           -> String
+           -> IO ()
+plotPoints fp points title = toFile def fp $ do
+    layout_title .= title
+    plot (line "" [points])
+
 plotLines :: (Enum n, Num n, Num m, PlotValue n, PlotValue m)
           => FilePath
           -> String
@@ -64,3 +72,30 @@ plotProbLines fp title xaxis yaxis (lowerX, upperX) (lowerY, upperY) maps = toFi
 
 interpolate :: (Enum n, Ord n) => (n, n) -> m -> M.Map n m -> [(n, m)]
 interpolate (lower, upper) def m = map (\k -> (k, fromMaybe def (M.lookup k m))) [lower..upper]
+
+
+plotHist :: FilePath
+         -> (Double, Double)
+         -> Int
+         -> [Double]
+         -> String
+         -> IO ()
+plotHist outputFile bounds nBuckets vals title = toFile def outputFile $ do
+  let points = histPoints bounds nBuckets vals
+  layout_title .= title
+  plot (line "" [points])
+
+histPoints :: (Double, Double) -> Int -> [Double] -> [(Double, Double)]
+histPoints (lower, upper) nBuckets vals =
+  zipWith (\(lower, upper) n -> ((upper + lower) / 2, fromIntegral n / total )) buckets bucketed
+  where width = (upper - lower) / fromIntegral nBuckets
+        boundaries = [lower, lower+width .. upper]
+        buckets = zipWith (,) boundaries (tail boundaries)
+        inBuckets = map (\(lower, upper) -> \x -> x >= lower && x <= upper) buckets
+        bucketed = map (\pred -> length $ filter pred vals) inBuckets
+        total = fromIntegral $ length vals
+
+histFile :: FilePath -> FilePath -> String -> IO ()
+histFile inputFile outputFile title = do
+  vals <- (map read . lines) <$> readFile inputFile
+  plotHist outputFile (0, 1) 300 vals title
