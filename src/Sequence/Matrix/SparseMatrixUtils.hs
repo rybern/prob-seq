@@ -7,6 +7,8 @@ import qualified Data.Set as Set
 import Sequence.Matrix.Types
 import Data.Foldable
 import Data.List (partition)
+import Data.Vector (Vector)
+import qualified Data.Vector as V
 
 {-
 inverse :: M.SparseMatrix Double -> M.SparseMatrix Double
@@ -19,78 +21,78 @@ toDense :: M.SparseMatrix Double -> DM.MatrixXd
 toDense = DM.fromList . map allElems . allRows
 -}
 
-buildMatrix :: (Num a, Eq a)
-            => (M.Index, M.Index)
-            -> ((M.Index, M.Index) -> a)
-            -> M.SparseMatrix a
+buildMatrix :: (M.Index, M.Index)
+            -> ((M.Index, M.Index) -> Double)
+            -> M.SparseMatrix
 buildMatrix (nr, nc) f = M.sparseMx [[ f (r, c)
                                      | c <- [1..nc]]
                                     | r <- [1..nr]]
 
-mapWithIxs :: (Num a, Eq a) => ((M.Index, M.Index) -> a -> a) -> M.SparseMatrix a -> M.SparseMatrix a
+mapWithIxs :: ((M.Index, M.Index) -> Double -> Double) -> M.SparseMatrix -> M.SparseMatrix
 mapWithIxs fn = M.fromAssocList . map (\(ixs, a) -> (ixs, fn ixs a)) . M.toAssocList
 
-reverseVec :: (Eq a, Num a) => M.SparseVector a -> M.SparseVector a
+reverseVec :: M.SparseVector -> M.SparseVector
 reverseVec m = M.setLength (M.dim m)
                . M.vecFromAssocList
                . zip [1..]
                . reverse
-               . allElems
+               . V.toList
+               . M.allElems
                $ m
 
-reverseCols :: (Eq a, Num a) => M.SparseMatrix a -> M.SparseMatrix a
-reverseCols m = M.setSize (M.dims m) . M.trans . M.fromRows . reverseVec . M.rows . M.trans $ m
+reverseCols :: M.SparseMatrix -> M.SparseMatrix
+reverseCols m = M.setSize (M.dims m) . M.trans . M.fromRows . V.reverse . M.rows . M.trans $ m
 
-reverseRows :: (Eq a, Num a) => M.SparseMatrix a -> M.SparseMatrix a
-reverseRows = M.fromRows . reverseVec . M.rows
+reverseRows :: M.SparseMatrix -> M.SparseMatrix
+reverseRows = M.fromRows . V.reverse . M.rows
 
-prependRow :: (Num a) => M.SparseVector a -> M.SparseMatrix a -> M.SparseMatrix a
+prependRow :: M.SparseVector -> M.SparseMatrix -> M.SparseMatrix
 prependRow v = M.addRow v 1
 
-prependCol :: (Num a) => M.SparseVector a -> M.SparseMatrix a -> M.SparseMatrix a
+prependCol :: M.SparseVector -> M.SparseMatrix -> M.SparseMatrix
 prependCol v = M.addCol v 1
 
-appendRow :: (Num a) => M.SparseVector a -> M.SparseMatrix a -> M.SparseMatrix a
+appendRow :: M.SparseVector -> M.SparseMatrix -> M.SparseMatrix
 appendRow v m = M.addRow v (succ (M.height m)) m
 
-appendCol :: (Num a) => M.SparseVector a -> M.SparseMatrix a -> M.SparseMatrix a
+appendCol :: M.SparseVector -> M.SparseMatrix -> M.SparseMatrix
 appendCol v m = M.addCol v (succ (M.width m)) m
 
-popCol :: (Eq a, Num a) => M.Index -> M.SparseMatrix a -> (M.SparseVector a, M.SparseMatrix a)
+popCol :: M.Index -> M.SparseMatrix -> (M.SparseVector, M.SparseMatrix)
 popCol i m = (M.col m i, M.delCol i m)
 
-filterCols :: (Num a) => Set M.Index -> M.SparseMatrix a -> M.SparseMatrix a
+filterCols :: Set M.Index -> M.SparseMatrix -> M.SparseMatrix
 filterCols keep m = foldl (flip M.delCol) m . filter (not . (`Set.member` keep)) . reverse $ [1..M.width m]
 
-filterRows :: (Num a) => Set M.Index -> M.SparseMatrix a -> M.SparseMatrix a
+filterRows :: Set M.Index -> M.SparseMatrix -> M.SparseMatrix
 filterRows keep m = foldl (flip M.delRow) m . filter (not . (`Set.member` keep)) . reverse $ [1..M.height m]
 
-trimZeroCols :: (Eq a, Num a) => M.SparseMatrix a -> M.SparseMatrix a
+trimZeroCols :: M.SparseMatrix -> M.SparseMatrix
 trimZeroCols m = let (lastCol, m') = popLastCol m
                  in if M.isZeroVec lastCol
                     then trimZeroCols m'
                     else m
 
-popLastCol :: (Eq a, Num a) => M.SparseMatrix a -> (M.SparseVector a, M.SparseMatrix a)
+popLastCol :: M.SparseMatrix -> (M.SparseVector, M.SparseMatrix)
 popLastCol m = (M.col m lastIx, M.delCol lastIx m)
   where lastIx = M.width m
 
-onehotVector :: (Eq a, Fractional a) => M.Index -> Int -> M.SparseVector a
+onehotVector :: M.Index -> Int -> M.SparseVector
 onehotVector hot len = M.vecIns (M.zeroVec len) (hot, 1.0)
 
-normalize :: (Num a, Fractional a) => M.SparseMatrix a -> M.SparseMatrix a
+normalize :: M.SparseMatrix -> M.SparseMatrix
 normalize = M.mapOnRows normalizeVec
 
-normalizeVec :: (Num a, Fractional a) => M.SparseVector a -> M.SparseVector a
-normalizeVec r = (/ sum r) <$> r
+normalizeVec :: M.SparseVector -> M.SparseVector
+normalizeVec r = (recip $ M.sumV r) `M.scaleV` r
 
-mapRow :: (Num a, Fractional a) => Int -> (M.SparseVector a -> M.SparseVector a) -> M.SparseMatrix a -> M.SparseMatrix a
+mapRow :: Int -> (M.SparseVector -> M.SparseVector) -> M.SparseMatrix -> M.SparseMatrix
 mapRow ix f m = M.replaceRow (f (M.row m ix)) ix m
 
-colMx :: (Eq a, Num a, Fractional a) => M.SparseVector a -> M.SparseMatrix a
+colMx :: M.SparseVector -> M.SparseMatrix
 colMx = M.trans . M.fromRows . (\x -> [x])
 
-diagConcat :: (Eq a, Fractional a) => M.SparseMatrix a -> M.SparseMatrix a -> M.SparseMatrix a
+diagConcat :: M.SparseMatrix -> M.SparseMatrix -> M.SparseMatrix
 diagConcat a d = M.blockMx [ [a, blockB]
                            , [blockC, d] ]
   where (rA, cA) = M.dims a
@@ -98,7 +100,7 @@ diagConcat a d = M.blockMx [ [a, blockB]
         blockB = M.zeroMx (rA, cD)
         blockC = M.zeroMx (rD, cA)
 
-splitVecAt :: (Eq a, Num a) => M.Index -> M.SparseVector a -> (M.SparseVector a, M.SparseVector a)
+splitVecAt :: M.Index -> M.SparseVector -> (M.SparseVector, M.SparseVector)
 splitVecAt pivot = (\(a, b) -> ( M.vecFromAssocList a
                                , M.vecFromAssocList (map (\(ix, val) -> (ix - pivot, val)) b)))
                    . break ((> pivot) . fst)
@@ -106,48 +108,42 @@ splitVecAt pivot = (\(a, b) -> ( M.vecFromAssocList a
                    . M.vecToAssocList
 
 
-splitRowsAt :: (Eq a, Fractional a) => M.Index -> M.SparseMatrix a -> (M.SparseMatrix a, M.SparseMatrix a)
-splitRowsAt ix = (\(a, b) -> (M.fromRows a, M.fromRows b)) . splitAt ix . allRows
+splitRowsAt :: M.Index -> M.SparseMatrix -> (M.SparseMatrix, M.SparseMatrix)
+splitRowsAt ix = (\(a, b) -> (M.fromRows a, M.fromRows b)) . V.splitAt ix . allRows
 
-splitColsAt :: (Eq a, Fractional a) => M.Index -> M.SparseMatrix a -> (M.SparseMatrix a, M.SparseMatrix a)
-splitColsAt ix m = ( if ix == 0
+splitColsAt :: M.Index -> M.SparseMatrix -> (M.SparseMatrix, M.SparseMatrix)
+splitColsAt ix = (\(a, b) -> (M.fromCols a, M.fromCols b)) . V.splitAt ix . allCols
+
+splitColsAt' :: M.Index -> M.SparseMatrix -> (M.SparseMatrix, M.SparseMatrix)
+splitColsAt' ix m = ( if ix == 0
                      then M.emptyMx
                      else foldl' (\m c -> M.delCol c m) m (reverse rightCols)
                           -- M.setSize (M.height m, min ix (M.width m)) m
-                   , fromCols (map (M.col m) rightCols)
+                   , M.fromCols (map (M.col m) rightCols)
                    )
   where rightCols = [ix + 1 .. M.width m]
 
-fromCols :: (Eq a, Num a, Foldable f) => f (M.SparseVector a) -> M.SparseMatrix a
-fromCols = M.trans . M.fromRows
-
-setWidth :: (Num a) => Int -> M.SparseMatrix a -> M.SparseMatrix a
+setWidth :: Int -> M.SparseMatrix -> M.SparseMatrix
 setWidth w m = M.setSize (M.height m, w) m
 
-setHeight :: (Num a) => Int -> M.SparseMatrix a -> M.SparseMatrix a
+setHeight :: Int -> M.SparseMatrix -> M.SparseMatrix
 setHeight h m = M.setSize (h, M.width m) m
 
-allElems :: (Num a) => M.SparseVector a -> [a]
-allElems v = map (v M.!) $ [1..M.dim v]
+allCols :: M.SparseMatrix -> Vector M.SparseVector
+allCols = M.cols
 
-allCols :: (Eq a, Num a) => M.SparseMatrix a -> [M.SparseVector a]
-allCols = allRows . M.trans
+allRows :: M.SparseMatrix -> Vector M.SparseVector
+allRows = M.rows
 
-allRows :: (Eq a, Num a) => M.SparseMatrix a -> [M.SparseVector a]
-allRows = allElems . M.rows
-
-toVec :: (Eq a, Num a, Foldable f) => f a -> M.SparseVector a
+toVec :: (Foldable f) => f Double -> M.SparseVector
 toVec = M.vecFromAssocList . (\l -> if null l then [(0,0)] else l) . zip [1..] . toList
 
-scale :: (Eq a, Num a) => a -> M.SparseMatrix a -> M.SparseMatrix a
-scale a = ((a *) <$>)
-
-mapRows :: (Eq a, Num a) => (M.SparseVector a -> M.SparseVector a) -> M.SparseMatrix a -> M.SparseMatrix a
-mapRows f = M.fromRows . toVec . map f . allRows
+mapRows :: (M.SparseVector -> M.SparseVector) -> M.SparseMatrix -> M.SparseMatrix
+mapRows f = M.fromRows . V.map f . allRows
   --where rows = f <$> allRows m
         --maxLen = maximum (M.dim <$> rows)
 {-
-splitColsAt :: (Eq a, Fractional a) => M.Index -> M.SparseMatrix a -> (M.SparseMatrix a, M.SparseMatrix a)
+splitColsAt :: (Eq a, Fractional a) => M.Index -> M.SparseMatrix -> (M.SparseMatrix, M.SparseMatrix)
 splitColsAt ix m = (\(left, rightList) -> (left, fromCols rightList)) . (!! nPull) . iterate pullCol $ (m, [])
   where pullCol (left, rightList) = let (col, left') = popLastCol left
                                     in (left', col:rightList)
@@ -155,4 +151,4 @@ splitColsAt ix m = (\(left, rightList) -> (left, fromCols rightList)) . (!! nPul
 -}
 
 -- useful later?
--- maybeBlocksMx :: (Eq a, Fractional a) => [[M.SparseMatrix a]] -> M.SparseMatrix a
+-- maybeBlocksMx :: (Eq a, Fractional a) => [[M.SparseMatrix]] -> M.SparseMatrix

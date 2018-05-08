@@ -29,9 +29,9 @@ eitherOr p a b = MatSeq {
         (startA, mainTransA, startEndsA, endTransA) = splitTransTokens $ trans a
         (startB, mainTransB, startEndsB, endTransB) = splitTransTokens $ trans b
 
-        start = ((* p) <$> startA) <> ((* (1 - p)) <$> startB)
+        start = (p `M.scaleV` startA) <> ((1 - p) `M.scaleV` startB)
 
-        startEnds = ((* p) <$> startEndsA) + ((* (1 - p)) <$> startEndsB)
+        startEnds = (p `M.scaleV` startEndsA) + ((1 - p) `M.scaleV` startEndsB)
 
         endLen = max (M.width endTransA) (M.width endTransB)
         ends = M.vconcat [setWidth endLen endTransA, setWidth endLen endTransB]

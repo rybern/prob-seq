@@ -22,13 +22,13 @@ import qualified Data.Map as Map
 
 emptySequence :: MatSeq s
 emptySequence = MatSeq {
-    trans = M.fromRows (M.singVec (M.singVec 1))
+    trans = M.fromRows (V.singleton (M.singVec 1))
   , stateLabels = V.empty
   }
 
 skip :: Int -> MatSeq s
 skip n = MatSeq {
-    trans = M.fromRows (M.singVec (onehotVector (succ n) (succ n)))
+    trans = M.fromRows (V.singleton (onehotVector (succ n) (succ n)))
   , stateLabels = V.empty
   }
 

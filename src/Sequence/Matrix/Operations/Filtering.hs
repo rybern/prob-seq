@@ -47,7 +47,7 @@ transReachable = uncurry reachable . transGraph
 transGraph :: Trans -> (Set M.Index, Map M.Index (Set M.Index))
 transGraph t = ( fromMaybe Set.empty (0 `Map.lookup` dists)
                , 0 `Map.delete` dists)
-  where dists = Map.fromList . map (\(ix, dist) -> (ix - 1, rowSet dist)) . tail . M.vecToAssocList . M.rows $ t
+  where dists = Map.fromList . zip [0..] . map rowSet . V.toList . M.rows $ t
 
 rowSet :: Dist -> Set M.Index
 rowSet = Set.fromList . map fst . filter ((> 0) . snd) . tail . M.vecToAssocList

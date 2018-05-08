@@ -20,16 +20,16 @@ uniformSampleElemFrom = fromList . toUniform
           let uniform = 1 / (fromIntegral (length xs))
           in map (\a -> (a, uniform)) xs
 
-sampleSeqWithProb :: (MonadRandom m, Eq s) => (M.SparseVector Prob -> m Int) -> MatSeq s -> m ((V.Vector s, Int), Prob)
+sampleSeqWithProb :: (MonadRandom m, Eq s) => (M.SparseVector -> m Int) -> MatSeq s -> m ((V.Vector s, Int), Prob)
 sampleSeqWithProb sample seq = do
   sample <- sampleSeq sample seq
   return $ (sample, stateSequenceProbability sample seq)
 
-sampleSeq :: (MonadRandom m) => (M.SparseVector Prob -> m Int) -> MatSeq s -> m (V.Vector s, Int)
+sampleSeq :: (MonadRandom m) => (M.SparseVector -> m Int) -> MatSeq s -> m (V.Vector s, Int)
 sampleSeq sample seq =
   (\(ixs, endIx) -> (V.map (fst . (stateLabels seq V.!)) ixs, endIx)) <$> sampleSeqIxs sample seq
 
-sampleSeqIxs :: (MonadRandom m) => (M.SparseVector Prob -> m Int) -> MatSeq s -> m (V.Vector Int, Int)
+sampleSeqIxs :: (MonadRandom m) => (M.SparseVector -> m Int) -> MatSeq s -> m (V.Vector Int, Int)
 sampleSeqIxs sample seq = do
   let trans = getNormalTransWithEnds seq
   ixs <- sampleTrans sample trans
@@ -40,7 +40,7 @@ sampleSeqIxs sample seq = do
 -- this hangs on (ds [a])
 -- The problem is the form of trans, 1 is looping to itself because there's no first column
 
-sampleTrans :: (MonadRandom m) => (M.SparseVector Prob -> m Int) -> Trans -> m (V.Vector Int)
+sampleTrans :: (MonadRandom m) => (M.SparseVector -> m Int) -> Trans -> m (V.Vector Int)
 sampleTrans sample m = V.fromList . reverse <$> iterateUntilM
   (\path@(ix:_   ) -> ix > nStates m && length path > 1)
   (\(ix:rest) -> do
@@ -48,14 +48,14 @@ sampleTrans sample m = V.fromList . reverse <$> iterateUntilM
       return $ ix':ix:rest)
   [1]
 
-stepSequence :: (MonadRandom m) => (M.SparseVector Prob -> m Int) -> Trans -> Int -> m Int
+stepSequence :: (MonadRandom m) => (M.SparseVector -> m Int) -> Trans -> Int -> m Int
 stepSequence sample m ix = sample $ M.row m ix
 
 --sometimes samples things with zero probability!
-vecUniformDist :: (MonadRandom m) => M.SparseVector Prob -> m Int
+vecUniformDist :: (MonadRandom m) => M.SparseVector -> m Int
 vecUniformDist v = fromList . map (\(ix, p) -> (ix, uniform)) $ assocs
   where assocs = tail . M.vecToAssocList $ v
         uniform = recip . fromIntegral . length $ assocs
 
-vecDist :: (MonadRandom m) => M.SparseVector Prob -> m Int
+vecDist :: (MonadRandom m) => M.SparseVector -> m Int
 vecDist = fromList . map (\(ix, p) -> (ix, toRational p)) . tail . M.vecToAssocList

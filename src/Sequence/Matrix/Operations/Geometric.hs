@@ -47,7 +47,7 @@ geometricRepeat p (MatSeq {..}) = possibly (1-p) $ MatSeq {
         -- do we need to iterate this somehow? what do we do with the ends after distribution, let them go?
         transition = trans `distributeEnds` ends
 
-        trans' = M.hconcat [main, scale p ends] + scale (1-p) transition
+        trans' = M.hconcat [main, M.scale p ends] + M.scale (1-p) transition
 
         --rightLen = max (M.width transition) (M.width trans)
         --lowerLeft = M.zeroMx (M.height nonstartB, M.width mainA)

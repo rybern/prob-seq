@@ -28,4 +28,4 @@ skipDist ps (MatSeq {..}) = MatSeq {
   where steps = stationary (nStates trans) : transSteps trans
         -- normalize the initial row, because the stationary distribution has 0 in the first row
         -- could also scale first row by 1 / sum (tail ps)
-        trans' = mapRow 1 normalizeVec . sum $ zipWith scale ps steps
+        trans' = mapRow 1 normalizeVec . sum $ zipWith M.scale ps steps

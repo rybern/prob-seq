@@ -26,4 +26,4 @@ reverseSequence s = s {
         (mainStart, mainTrans, endsStart, endsTrans) = splitTransTokens squareTrans
         mainStart' = M.col endsTrans 1
         mainTrans' = M.trans mainTrans
-        endsTrans' = fromCols [mainStart]
+        endsTrans' = M.fromCols [mainStart]

@@ -20,7 +20,7 @@ addStartColumn trans = prependCol (M.zeroVec (M.height trans)) trans
 collapseEnds :: Trans -> Trans
 collapseEnds trans = M.hconcat [main, flatEnds]
   where (main, ends) = splitEnds trans
-        flatEnds = setWidth 1 $ M.mapOnRows (M.singVec . sum) ends
+        flatEnds = setWidth 1 $ M.mapOnRows (M.singVec . M.sumV) ends
 
 splitStart :: Trans -> (Dist, Trans)
 splitStart = M.popRow 1
@@ -49,7 +49,7 @@ addFixedEndRow trans = appendRow (onehotVector (M.width trans) (M.width trans)) 
 nStates :: Trans -> Int
 nStates = pred . M.height
 
-forwardDiagonal :: (Eq a, Num a) => Int -> M.SparseMatrix a
+forwardDiagonal :: Int -> M.SparseMatrix
 forwardDiagonal n = M.delRow 1 . M.idMx . succ $ n
 
 mapStates :: (a -> b) -> MatSeq a -> MatSeq b
@@ -69,7 +69,7 @@ appendLabel :: Int -> Vector (a, StateTag) -> Vector (a, StateTag)
 appendLabel label = V.map (\(s, ts) -> (s, StateTag label [ts]))
 
 reachableSkips :: Trans -> [Int]
-reachableSkips m = map fst . filter snd . zip [0..] . map M.isNotZeroVec . drop (nStates m) . allCols $ m
+reachableSkips m = map fst . filter snd . zip [0..] . map M.isNotZeroVec . drop (nStates m) . V.toList . allCols $ m
 
 stationary :: Int -> Trans
 stationary nStates = appendCol (M.zeroVec (nStates + 1)) . prependRow (M.zeroVec nStates) $ M.idMx nStates

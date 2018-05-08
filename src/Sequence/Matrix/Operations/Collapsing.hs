@@ -58,7 +58,7 @@ collapse concatLabels n seq = --traceShow (V.length (stateLabels seq), (trans se
 
         startTrans'' = toVec starts
 
-        endsStart'' = endsStart + (sum . V.map (\(p, ends) -> (p *) <$> ends) $ tupleProbs)
+        endsStart'' = endsStart + (sum . V.map (\(p, ends) -> p `M.scaleV` ends) $ tupleProbs)
 
         tupleTrans ((tuples V.!) . pred -> t1, (tuples V.!) . pred -> t2) =
           if V.tail t1 == V.init t2
@@ -83,7 +83,7 @@ monolith (main, ends) n current = V.foldl join (V.empty, rowEnds) $ V.map recurs
         subtrees = V.fromList . tail . M.vecToAssocList $ M.row main current
         recurse (ix, p) =
           let (tuples, rowEnds) = monolith (main, ends) (n-1) ix
-          in (V.map (\(tuple, q) -> (current `V.cons` tuple, p * q)) tuples, (p *) <$> rowEnds)
+          in (V.map (\(tuple, q) -> (current `V.cons` tuple, p * q)) tuples, p `M.scaleV` rowEnds)
         join (tuples1, startEnds1) (tuples2, startEnds2) = (tuples1 <> tuples2, startEnds1 + startEnds2)
 
 stateNPaths :: Int

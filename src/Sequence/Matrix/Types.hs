@@ -12,8 +12,8 @@ import qualified Data.Vector as V
 --import qualified Math.LinearAlgebra.Sparse as M
 import qualified SparseMatrix as M
 
-type Dist = M.SparseVector Prob
-type Trans = M.SparseMatrix Prob
+type Dist = M.SparseVector
+type Trans = M.SparseMatrix
 
 data StateTag = StateTag Int [StateTag]
   deriving (Show, Read, Eq)
