@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedLists, ViewPatterns #-}
 module SparseMatrix where
 
 --import qualified Math.LinearAlgebra.Sparse as M
@@ -9,8 +9,11 @@ import qualified Data.Vector.Storable as SV
 import qualified Data.Vector as V
 import Data.Vector (Vector)
 import Data.Maybe
+import Data.List
 import qualified Data.Map as Map
 
+-- index from 1
+-- fromAssocList uses max indices
 
 type Index = Int
 
@@ -33,13 +36,22 @@ trans :: SparseMatrix -> SparseMatrix
 trans = M.transpose
 
 toAssocList :: SparseMatrix -> [((Index, Index), Double)]
-toAssocList = map (\(x, y, v) -> ((x, y), v)) . M.toList
+toAssocList = map (\(x, y, v) -> ((x + 1, y + 1), v)) . M.toList
 
-fromAssocList :: Int -> Int -> [((Index, Index), Double)] -> SparseMatrix
-fromAssocList width height = M.fromList width height . map (\((x, y), v) -> (x, y, v))
+toAssocList' :: SparseMatrix -> [((Index, Index), Double)]
+toAssocList' = map (\(x, y, v) -> ((x, y), v)) . M.toList
+
+fromAssocList :: [((Index, Index), Double)] -> SparseMatrix
+fromAssocList ps = fromAssocList' maxR maxC ps'
+  where (maxR, maxC, ps') = foldl' takeTriple (0, 0, []) ps
+        takeTriple (maxR, maxC, sofar) ((r, c), v) =
+          (max maxR r, max maxC c, ((r - 1, c - 1), v):sofar)
+
+fromAssocList' :: Int -> Int -> [((Index, Index), Double)] -> SparseMatrix
+fromAssocList' width height = M.fromList width height . map (\((x, y), v) -> (x, y, v))
 
 vecFromAssocList :: Int -> [(Index, Double)] -> SparseVector
-vecFromAssocList width = SV . fromAssocList 1 width . map (\(x, v) -> ((0, x), v))
+vecFromAssocList width = SV . fromAssocList' 1 width . map (\(x, v) -> ((0, x - 1), v))
 
 vecToAssocList :: SparseVector -> [(Index, Double)]
 vecToAssocList = map (\((_, x), v) -> (x, v)) . toAssocList . unSV
@@ -51,10 +63,10 @@ mul :: SparseMatrix -> SparseMatrix -> SparseMatrix
 mul = M.mul
 
 (!) :: SparseVector -> Index -> Double
-(!) (SV v) ix = v # (0, ix)
+(!) (SV v) ix = v # (0, ix - 1)
 
 (#) :: SparseMatrix -> (Index, Index) -> Double
-(#) = (M.!)
+(#) m (r, c) = m M.! (r - 1, c - 1)
 
 dims :: SparseMatrix -> (Int, Int)
 dims m = (height m, width m)
@@ -78,26 +90,26 @@ emptyMx :: SparseMatrix
 emptyMx = zeroMx (0, 0)
 
 idMx :: Int -> SparseMatrix
-idMx n = fromAssocList n n [((i, i), 1) | i <- [0..n-1]]
+idMx n = fromAssocList' n n [((i, i), 1) | i <- [0..n-1]]
 
 singVec :: Double -> SparseVector
-singVec x = SV $ fromAssocList 1 1 [((0, 0), x)]
+singVec x = SV $ fromAssocList' 1 1 [((0, 0), x)]
 
 zeroVec :: Int -> SparseVector
 zeroVec n = SV $ zeroMx (1, n)
 
 row :: SparseMatrix -> Index -> SparseVector
-row m ix = SV $ M.block ix 0 1 (width m) m
+row m ix = SV $ M.block (ix - 1) 0 1 (width m) m
 
 col :: SparseMatrix -> Index -> SparseVector
-col m ix = SV $ M.block 0 ix (height m) 1 m
+col m ix = SV $ M.block 0 (ix - 1) (height m) 1 m
 
 -- would it be better to iterate over the list form?
 rows :: SparseMatrix -> Vector SparseVector
-rows m = V.map (row m) $ [0..height m]
+rows m = V.map (row m) $ [1..height m]
 
 cols :: SparseMatrix -> Vector SparseVector
-cols m = V.map (col m) $ [0..width m]
+cols m = V.map (col m) $ [1..width m]
 
 fromRows :: (Foldable f, Functor f) => f SparseVector -> SparseMatrix
 fromRows = undefined -- vconcat . fmap unSV
@@ -149,24 +161,24 @@ shiftAndJoin by@(x, y) m1 m2 = M.fromVector height' width'
   where height' = max (height m1 + x) (height m2)
         width' = max (width m1 + y) (width m2)
 
-overwrite :: ((Int, Int) -> Bool)
+overwrite' :: ((Int, Int) -> Bool)
           -> [((Index, Index), Double)]
           -> SparseMatrix
           -> SparseMatrix
-overwrite p vals m = fromAssocList (height m) (width m)
+overwrite' p vals m = fromAssocList' (height m) (width m)
                    . (vals ++)
                    . filter (not . p . fst)
-                   . toAssocList
+                   . toAssocList'
                    $ m
 
  -- unclear which is faster
 replaceRow' :: SparseVector -> Index -> SparseMatrix -> SparseMatrix
-replaceRow' v r = overwrite
+replaceRow' v (pred -> r) = overwrite'
   ((== r) . fst)
-  (map (\((_, c), v) -> ((r, c), v)) $ toAssocList (unSV v))
+  (map (\((_, c), v) -> ((r, c), v)) $ toAssocList' (unSV v))
 
 replaceRow :: SparseVector -> Index -> SparseMatrix -> SparseMatrix
-replaceRow (SV row) r m = vconcat . catMaybes $
+replaceRow (SV row) (pred -> r) m = vconcat . catMaybes $
   [ if r == 0 then Nothing else Just $
     M.block 0 0 r (width m) m
   , Just row
@@ -189,18 +201,18 @@ unionVecsWith f v1 v2 = vecFromAssocList dim'
         dim' = max (dim v1) (dim v2)
 
 vecIns :: SparseVector -> (Index, Double) -> SparseVector
-vecIns (SV v) (c, val) = SV $ overwrite ((== c) . snd) [((0, c), val)] v
+vecIns (SV v) (pred -> c, val) = SV $ overwrite' ((== c) . snd) [((0, c), val)] v
 
-addRow :: SparseVector -> Int -> SparseMatrix -> SparseMatrix
-addRow (SV row) r m = vconcat . catMaybes $
+addRow :: SparseVector -> Index -> SparseMatrix -> SparseMatrix
+addRow (SV row) (pred -> r) m = vconcat . catMaybes $
   [ if r == 0 then Nothing else Just $
     M.block 0 0 r (width m) m
   , Just row
   , if r == height m then Nothing else Just $
     M.block r 0 (height m - r) (width m) m]
 
-addCol :: SparseVector -> Int -> SparseMatrix -> SparseMatrix
-addCol (SV col) c m = hconcat . catMaybes $
+addCol :: SparseVector -> Index -> SparseMatrix -> SparseMatrix
+addCol (SV col) (pred -> c) m = hconcat . catMaybes $
   [ if c == 0 then Nothing else Just $
     M.block 0 0 (height m) c m
   , Just $ trans col
@@ -214,24 +226,24 @@ setLength :: Int -> SparseVector -> SparseVector
 setLength l = SV . setSize (1, l) . unSV
 
 delRow :: Index -> SparseMatrix -> SparseMatrix
-delRow r m = vconcat . catMaybes $
+delRow (pred -> r) m = vconcat . catMaybes $
   [ if r == 0 then Nothing else Just $
     M.block 0 0 r (width m) m
   , if r == height m then Nothing else Just $
     M.block (r+1) 0 (height m - r - 1) (width m) m]
 
 delCol :: Index -> SparseMatrix -> SparseMatrix
-delCol c m = vconcat . catMaybes $
+delCol (pred -> c) m = vconcat . catMaybes $
   [ if c == 0 then Nothing else Just $
     M.block 0 0 (height m) c m
   , if c == width m then Nothing else Just $
     M.block 0 (c+1) (height m) (width m - c - 1) m]
 
 popRow :: Index -> SparseMatrix -> (SparseVector, SparseMatrix)
-popRow r m = (row m r, delRow r m)
+popRow (pred -> r) m = (row m r, delRow r m)
 
 popCol :: Index -> SparseMatrix -> (SparseVector, SparseMatrix)
-popCol c m = (col m c, delCol c m)
+popCol (pred -> c) m = (col m c, delCol c m)
 
 testA = testMat 3 4 1
 testB = testMat 3 3 13
