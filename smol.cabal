@@ -1,0 +1,93 @@
+name:                smol
+version:             0.1.0.0
+homepage:            https://github.com/rybern/smol
+license:             BSD3
+license-file:        LICENSE
+author:              Ryan Bernstein
+maintainer:          ryan.bernstein@columbia.edu
+copyright:           2017 Ryan Bernstein
+category:            Machine Learning
+build-type:          Simple
+cabal-version:       >=1.10
+extra-source-files:  README.md
+
+executable profiling
+  hs-source-dirs:      profiling
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+                     , sparse-lin-alg
+                     , vector
+                     , smol
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Sequence
+                     , Sequence.Constructors
+                     , Sequence.Matrix
+                     , Sequence.Matrix.Sampling
+                     , Sequence.Matrix.Emissions
+                     , Sequence.Matrix.IO
+                     , Sequence.Matrix.Operations
+                     , Sequence.Matrix.Operations.AndThen
+                     , Sequence.Matrix.Operations.Collapsing
+                     , Sequence.Matrix.Operations.Deterministic
+                     , Sequence.Matrix.Operations.EitherOr
+                     , Sequence.Matrix.Operations.Filtering
+                     , Sequence.Matrix.Operations.Geometric
+                     , Sequence.Matrix.Operations.Insertion
+                     , Sequence.Matrix.Operations.Products
+                     , Sequence.Matrix.Operations.Reverse
+                     , Sequence.Matrix.Operations.SkipDist
+                     , Sequence.Matrix.Types
+                     , Sequence.Types
+                     , Sequence.Matrix.IO.Write
+                     , Sequence.Matrix.IO.Read
+                     , Sequence.Matrix.IO.StateLabels
+                     , Sequence.Matrix.IO.TransMatrix
+                     , Sequence.Matrix.ProbSeqMatrixUtils
+                     , Sequence.Matrix.SparseMatrixUtils
+  other-modules:       SparseMatrix
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+                     , sparse-lin-alg
+                     , vector
+                     , MonadRandom
+                     , monad-loops
+                     , filepath
+                     , containers
+                     , data-fix
+                     , either
+                     , QuickCheck
+                     , split
+                     , attoparsec
+                     , text
+                     , parallel
+                     , mtl
+                     , cassava
+                     , bytestring
+                     , bytestring-conversion
+                     , eigen
+
+test-suite smol-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Test.hs
+  other-modules:       ArbitraryConstructors
+                     , ConstructorSampling
+                     , TestAST
+                     , TestConstructors
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+                     , smol
+                     , sparse-lin-alg
+                     , vector
+                     , MonadRandom
+                     , data-fix
+                     , monad-loops
+                     , QuickCheck
+                     , tasty-quickcheck
+                     , tasty-smallcheck
+                     , tasty-hspec
+                     , tasty-hunit
+                     , tasty
