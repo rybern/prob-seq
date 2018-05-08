@@ -6,7 +6,8 @@ import Data.Monoid
 import Data.List (find)
 import Control.Monad
 import qualified Data.Vector as V
-import qualified Math.LinearAlgebra.Sparse as M
+--import qualified Math.LinearAlgebra.Sparse as M
+import qualified SparseMatrix as M
 
 import Test.Tasty
 import Test.Tasty.QuickCheck

@@ -74,7 +74,7 @@ arbitraryState = do
   return (State s)
 
 probGen :: Gen Prob
-probGen = toRational <$> (choose (0, 1) :: Gen Double)
+probGen = (choose (0, 1) :: Gen Double)
 
 distGen :: Int -> Gen [Prob]
 distGen n = do
