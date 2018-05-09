@@ -13,6 +13,7 @@ import Data.Vector (Vector)
 import Sequence.Constructors
 import Unsafe.Coerce
 import Control.Monad.State
+import qualified SparseMatrix as M
 
 import Control.Parallel.Strategies
 

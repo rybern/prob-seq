@@ -11,6 +11,7 @@ import Sequence
 import Sequence.Constructors
 
 import ConstructorSampling
+import Debug.Trace
 
 data CompareError s = CompareError {
     path :: (Vector s, Int)
@@ -19,6 +20,32 @@ data CompareError s = CompareError {
   , matrices :: ConstructorWith s (MatSeq s) (MatSeq s)
   , samples :: [(Vector s, Int)]
   } deriving Show
+
+
+checkConstructorExact' :: (Show s, Eq s)
+                      => Int
+                      -> ConstructorWith s (MatSeq s) (MatSeq s)
+                      -> IO (Maybe (CompareError s))
+checkConstructorExact' nSamples c@(ConstructorWith {..}) = do
+  samples <- replicateM nSamples $ sampleSeq vecUniformDist with
+  print samples
+  print $ "constructor: " ++  show constructor
+  print $ "with: " ++  show with
+  print $ "ssp " ++ (show $ stateSequenceProbability (head samples) with)
+  print $ "sc " ++ (show $ constructorSeqProb (fmap sequenceDist constructor) (head samples))
+  -- endAfterStepsProbability ms
+  return . getFirst . mconcat . map First . flip map samples $ \s ->
+    let pMat = stateSequenceProbability s with
+        pSubmats = sampleConstructor constructor s
+    in if pSubmats `withinEps` pMat
+       then Nothing
+       else Just $ CompareError {
+        path = s
+      , probMatrix = pMat
+      , probSubmatrices = pSubmats
+      , matrices = c
+      , samples = samples
+      }
 
 checkConstructorExact :: (Eq s, MonadRandom m)
                       => Int
@@ -29,7 +56,7 @@ checkConstructorExact nSamples c@(ConstructorWith {..}) = do
   return . getFirst . mconcat . map First . flip map samples $ \s ->
     let pMat = stateSequenceProbability s with
         pSubmats = sampleConstructor constructor s
-    in if pSubmats == pMat
+    in if pSubmats `withinEps` pMat
        then Nothing
        else Just $ CompareError {
         path = s
@@ -38,6 +65,13 @@ checkConstructorExact nSamples c@(ConstructorWith {..}) = do
       , matrices = c
       , samples = samples
       }
+
+
+epsilon :: Prob
+epsilon = 1e-10
+
+withinEps :: Prob -> Prob -> Bool
+withinEps a b = abs (a - b) < epsilon
 
 checkProbSeqExact :: (Eq s, MonadRandom m)
                   => Int

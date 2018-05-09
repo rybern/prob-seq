@@ -31,6 +31,15 @@ endAfterStepsProbability' (main, ends) n end current = thisRowEnd + sum nextRowE
                     . M.vecToAssocList
                     $ nexts
 
+endAfterStepsProbability'' _ 0 _ _ = undefined
+endAfterStepsProbability'' (main, ends) n end current = thisRowEnd
+  where thisRowEnd = M.row ends current M.! (end+1)
+        nexts = M.row main current
+        nextRowEnds = map (\(ix, p) -> p * endAfterStepsProbability' (main, ends) (n-1) end ix)
+                    . tail
+                    . M.vecToAssocList
+                    $ nexts
+
 sequencePrefixProbability :: (Eq s) => V.Vector s -> MatSeq s -> Prob
 sequencePrefixProbability path seq = sum . pathProbs (getNormalTransWithEnds seq) . V.toList . V.map (stateIxs seq) $ path
 
@@ -61,7 +70,7 @@ pathProbs' _ _ [] = [1.0]
 pathProbs' current trans (nexts:rest) = do
   next <- nexts
 
-  let transProb = trans M.# (current, next)
+  let transProb = trans `M.lookupDefault0` (current, next)
   guard $ transProb > 0
 
   nextPathProb <- pathProbs' next trans rest

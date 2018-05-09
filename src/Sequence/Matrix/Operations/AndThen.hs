@@ -20,8 +20,13 @@ import qualified Data.Map as Map
 import Debug.Trace
 
 import Sequence.Matrix.Operations.Deterministic
+import Sequence.Matrix.Operations.EitherOr
 
 type SkipAdd = Bool
+
+a = (eitherOr 0.5 (skip 1) (state 0))
+b = (state 1)
+test5 = andThen a b
 
 andThen = andThenToggle True
 andThen' = andThenToggle False
@@ -61,8 +66,8 @@ instance Monoid (MatSeq a) where
 {- STATE STEPPING -}
 
   -- [[0], [1]]
-transTo = (trans (state "B"))
-transFrom = (snd . splitEnds . trans $ state "A")
+transTo = (trans b)
+transFrom = (snd . splitEnds . trans $ a)
 test4 = transTo `distributeEnds` transFrom
 
 distributeEnds :: Trans -> Trans -> Trans
@@ -71,7 +76,7 @@ distributeEnds transTo transFrom = trimZeroCols . mapRows (transStepDist steps) 
 
 transStepDist :: [Dist] -> Dist -> Dist
 transStepDist steps dist =
-  foldl1 (+) $ (\(ix, p) -> p `M.scaleV` getStep ix) <$> M.vecToAssocList dist
+  foldl M.addVec M.emptyVec $ (\(ix, p) -> p `M.scaleV` getStep ix) <$> (M.vecToAssocList dist)
   where getStep 0 = let len = (M.dim (head steps)) in onehotVector len len
         getStep n = steps !! (n - 1)
 

@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections, RecordWildCards, DeriveTraversable, DeriveFunctor, ViewPatterns #-}
+{-# LANGUAGE TupleSections, RecordWildCards, DeriveTraversable, DeriveFunctor, ViewPatterns, FlexibleInstances #-}
 module Sequence.Constructors where
 
 import Sequence.Matrix.Types
@@ -34,27 +34,36 @@ data Constructor s t =
   | Repeat' Int t
   deriving (Functor, Foldable, Traversable)
 
--- should maybe write these for core constructors instead
+showL :: (a -> String) -> [a] -> String
+showL s xs = "[" ++ intercalate "," (map s xs) ++ "]"
+
+showConstructor :: (Show s) => Constructor s String -> String
+showConstructor EmptySequence = "emptySequence"
+showConstructor (State s) = "state (" ++ show s ++ ")"
+showConstructor (Skip n) = "skip " ++ show n
+showConstructor (SkipDist ps s) = "skipDist " ++ show ps ++ " (" ++ s ++ ")"
+showConstructor (MatrixForm _) = "mat"
+showConstructor (EitherOr p a b) = "eitherOr " ++ show p ++ " (" ++ a ++ ") (" ++ b ++ ")"
+showConstructor (AndThen a b) = "andThen (" ++ a ++ ") (" ++ b ++ ")"
+showConstructor (AndThen' a b) = "andThen' (" ++ a ++ ") (" ++ b ++ ")"
+showConstructor (Possibly p a) = "possibly " ++ show p ++ " (" ++ a ++ ")"
+showConstructor (UniformDistOver as) = "uniformDistOver " ++ showL id as
+showConstructor (FiniteDistOver as) = "finiteDistOver " ++ showL (\(s, p) -> "(" ++ s ++ ", " ++ show p ++ ")") as
+showConstructor (GeometricRepeat p a) = "geometricRepeat " ++ show p ++ " (" ++ a ++ ")"
+showConstructor (FiniteDistRepeat ps a) = "finiteDistRepeat " ++ show ps ++ " (" ++ a ++ ")"
+showConstructor (UniformDistRepeat n a) = "uniformDistRepeat " ++ show n ++ " (" ++ a ++ ")"
+showConstructor (ReverseSequence a) = "reverseSequence (" ++ a ++ ")"
+showConstructor (Collapse _ _ n a) = "collapse treeToVec vecToTree " ++ show n ++ " (" ++ a ++ ")"
+showConstructor (Series as) = "series " ++ showL id as
+showConstructor (Series' as) = "series' " ++ showL id as
+showConstructor (Repeat n a) = "repeat " ++ show n ++ " (" ++ a ++ ")"
+
 instance (Show s, Show t) => Show (Constructor s t) where
-  show EmptySequence = "<>"
-  show (State s) = show s
-  show (Skip n) = "skip[" ++ show n ++ "]"
-  show (SkipDist ps s) = "skipdist(" ++ show s ++ ")"
-  show (MatrixForm _) = "mat"
-  show (EitherOr p a b) = "{" ++ show p ++ ": " ++ show a ++ ", 1-" ++ show p ++ ": " ++ show b ++ "}"
-  show (AndThen a b) = "<" ++ show a ++ ", " ++ show b ++ ">"
-  show (AndThen' a b) = "<'" ++ show a ++ ", " ++ show b ++ ">"
-  show (Possibly p a) = "{" ++ show p ++ "? " ++ show a ++ "}"
-  show (UniformDistOver as) = "{" ++ show as ++ "}"
-  show (FiniteDistOver as) = "{" ++ (intercalate ", " (map (\(a, p) -> show p ++ ": " ++ show a) as)) ++ "}"
-  show (GeometricRepeat p a) = show a ++ "[" ++ show p ++ "...]"
-  show (FiniteDistRepeat ps a) = show a ++ "[" ++ show ps ++ "]"
-  show (UniformDistRepeat n a) = show a ++ "[0.." ++ show n ++ "]"
-  show (ReverseSequence a) = "reverse(" ++ show a ++ ")"
-  show (Collapse _ _ n a) = "collapse(" ++ show n ++ ", " ++ show a ++ ")"
-  show (Series as) = "<" ++ intercalate ", " (map show as) ++ ">"
-  show (Series' as) = "<'" ++ intercalate ", " (map show as) ++ ">"
-  show (Repeat n a) = "<" ++ show a ++ "[" ++ show n ++ "]" ++ ">"
+  show = showConstructor . fmap show
+
+-- should maybe write these for core constructors instead
+instance (Show s) => Show (Fix (Constructor s)) where
+  show t = cata showConstructor t
 
 type ProbSeq s = Fix (Constructor s)
 
@@ -62,6 +71,10 @@ data ConstructorWith s a t = ConstructorWith {
     with :: a
   , constructor :: Constructor s t
   } deriving (Show, Functor, Foldable, Traversable)
+
+-- should maybe write these for core constructors instead
+instance (Show s, Show a) => Show (Fix (ConstructorWith s a)) where
+  show t = cata show t
 
 newtype ProbSeqWith s a = ProbSeqWith (Fix (ConstructorWith s a))
   deriving Show

@@ -19,6 +19,16 @@ import qualified Data.Map as Map
 
 import Sequence.Matrix.Operations.Deterministic
 
+test1 = eitherOr 0.5 emptySequence emptySequence
+test2 = eitherOr 0.5 (skip 1) emptySequence
+
+eitherOr' p a b = (startEndsA, startEndsB, startEnds)
+  where (startA, mainTransA, startEndsA, endTransA) = splitTransTokens $ trans a
+        (startB, mainTransB, startEndsB, endTransB) = splitTransTokens $ trans b
+
+        startEnds = (p `M.scaleV` startEndsA) `M.addVec` ((1 - p) `M.scaleV` startEndsB)
+
+
 eitherOr :: Prob -> MatSeq s -> MatSeq s -> MatSeq s
 eitherOr p a b = MatSeq {
     trans = joinTransTokens (start, mainTrans, startEnds, ends)
@@ -31,7 +41,7 @@ eitherOr p a b = MatSeq {
 
         start = (p `M.scaleV` startA) <> ((1 - p) `M.scaleV` startB)
 
-        startEnds = (p `M.scaleV` startEndsA) + ((1 - p) `M.scaleV` startEndsB)
+        startEnds = (p `M.scaleV` startEndsA) `M.addVec` ((1 - p) `M.scaleV` startEndsB)
 
         endLen = max (M.width endTransA) (M.width endTransB)
         ends = M.vconcat [setWidth endLen endTransA, setWidth endLen endTransB]

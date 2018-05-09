@@ -21,6 +21,8 @@ import qualified Data.Map as Map
 
 import Debug.Trace
 
+import Sequence.Matrix.Operations.Deterministic
+
 {-
 What should the behavior be in something like:
 Collapse 5 (EitherOr 0.5 (Deterministic [1,2]) (Deterministic [1,2,3,4,5]))
@@ -30,6 +32,9 @@ but shouldn't there sometimes be the be a chance for collapsed states that were 
 -}
 
 -- is collapse . geometric infinite?
+
+test1 = collapse (V.foldl1 (++)) 2 (state "a")
+--test2 = collapse (V.foldl1 (++)) 2 (series . map (state . return) $ ["a", "b"])
 
 -- returns [] instead of [1] if n longer than seq
 collapse :: (Eq a) => (Vector a -> a) -> Int -> MatSeq a -> MatSeq a
@@ -84,7 +89,7 @@ monolith (main, ends) n current = V.foldl join (V.empty, rowEnds) $ V.map recurs
         recurse (ix, p) =
           let (tuples, rowEnds) = monolith (main, ends) (n-1) ix
           in (V.map (\(tuple, q) -> (current `V.cons` tuple, p * q)) tuples, p `M.scaleV` rowEnds)
-        join (tuples1, startEnds1) (tuples2, startEnds2) = (tuples1 <> tuples2, startEnds1 + startEnds2)
+        join (tuples1, startEnds1) (tuples2, startEnds2) = (tuples1 <> tuples2, startEnds1 `M.addVec` startEnds2)
 
 stateNPaths :: Int
             -> Trans

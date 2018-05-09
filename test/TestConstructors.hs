@@ -77,6 +77,12 @@ deterministicIsConstantProp s1 = do
   samples <- replicateM 10 $ sampleSeq vecUniformDist (buildMatSeq seq)
   return $ all (== (s1, 0)) samples
 
+deterministicIsConstantProp' s1 = do
+  let seq = series . map state . V.toList $ s1
+  samples <- replicateM 10 $ sampleSeq vecUniformDist (buildMatSeq seq)
+  return $ samples
+
+
 instance Arbitrary e => Arbitrary (V.Vector e) where
   arbitrary = V.fromList <$> arbitrary
 

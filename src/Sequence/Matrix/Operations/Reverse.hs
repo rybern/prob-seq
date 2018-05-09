@@ -17,6 +17,18 @@ import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import Sequence.Matrix.Operations.Deterministic
+import Sequence.Matrix.Operations.EitherOr
+
+test1 = reverseSequence emptySequence
+
+reverseSequence' t = joinTransTokens (mainStart', mainTrans', endsStart, endsTrans')
+  where squareTrans = collapseEnds $ t
+        (mainStart, mainTrans, endsStart, endsTrans) = splitTransTokens squareTrans
+        mainStart' = M.col endsTrans 1
+        mainTrans' = M.trans mainTrans
+        endsTrans' = M.fromCols [mainStart]
+
 reverseSequence :: MatSeq s -> MatSeq s
 reverseSequence s = s {
     trans = joinTransTokens (mainStart', mainTrans', endsStart, endsTrans')

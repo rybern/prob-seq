@@ -4,7 +4,6 @@ module Sequence.Matrix.ProbSeqMatrixUtils where
 import qualified SparseMatrix as M
 import Sequence.Matrix.SparseMatrixUtils
 import Sequence.Matrix.Types
-import Sequence.Matrix.SparseMatrixUtils
 import qualified Data.Vector as V
 import Data.Vector (Vector)
 

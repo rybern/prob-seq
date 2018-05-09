@@ -144,3 +144,21 @@ scale x = ((x *) <$>)
 
 fromCols :: (Foldable f, Functor f, Num a, Eq a) => f (M.SparseVector a) -> M.SparseMatrix a
 fromCols = M.trans . M.fromRows
+
+pruned :: SparseMatrix a -> SparseMatrix a
+pruned = id
+
+type Trans = SparseMatrix Double
+type Dist = SparseVector Double
+
+nStates :: Trans -> Int
+nStates = pred . M.height
+
+splitColsAt :: M.Index -> Trans -> (Trans, Trans)
+splitColsAt ix = (\(a, b) -> (fromCols a, fromCols b)) . V.splitAt ix . cols
+
+splitTransTokens :: Trans -> (Dist, Trans, Dist, Trans)
+splitTransTokens trans = (mainStart, mainTrans, endsStart, endsTrans)
+  where (main, ends) = splitColsAt (nStates trans) trans
+        (mainStart, mainTrans) = M.popRow 1 main
+        (endsStart, endsTrans) = M.popRow 1 ends
