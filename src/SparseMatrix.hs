@@ -21,7 +21,7 @@ type Index = Int
 type SparseMatrix = M.SparseMatrixXd
 -- row vector, shaped (1, n)
 newtype SparseVector = SV M.SparseMatrixXd
-  deriving (Show, Num)
+  deriving (Show)
 type CTriplet = I.CTriplet CDouble
 
 instance Monoid SparseVector where
@@ -83,6 +83,14 @@ addMx a b = update a + update b
         update m = if dims m /= dims'
                    then setSize dims' m
                    else m
+
+instance Num SparseVector where
+  (+) = addVec
+  (*) (SV a) (SV b) = SV $ a * b
+  negate (SV a) = SV $ negate a
+  abs (SV a) = SV $ abs a
+  signum (SV a) = SV $ signum a
+  fromInteger i = SV $ fromInteger i
 
 addVec :: SparseVector -> SparseVector -> SparseVector
 addVec a b = SV $ addMx (unSV a) (unSV b)

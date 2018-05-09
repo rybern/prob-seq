@@ -18,7 +18,12 @@ import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import Sequence.Matrix.Operations.Deterministic
 import Sequence.Matrix.Operations.AndThen
+
+skipDist' ps (MatSeq {..}) = trans'
+  where steps = stationary (nStates trans) : transSteps trans
+        trans' = mapRow 1 normalizeVec . foldl1 M.addMx $ zipWith M.scale ps steps
 
 skipDist :: [Prob] -> (MatSeq s) -> (MatSeq s)
 skipDist ps (MatSeq {..}) = MatSeq {
