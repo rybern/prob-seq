@@ -57,7 +57,7 @@ stateSequenceIxs seq (path, skip) = V.toList . addEnd . V.map (stateIxs seq) $ p
 
 stateIxs :: (Eq s) => MatSeq s -> s -> V.Vector M.Index
 stateIxs (MatSeq {stateLabels = stateLabels}) label =
-  flip V.imapMaybe stateLabels $ \ix (label', _) ->
+  flip V.imapMaybe stateLabels $ \ix (StateLabel label' _ _) ->
                                    if label' == label
                                    then Just (ix + 2)
                                    else Nothing

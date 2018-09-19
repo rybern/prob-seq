@@ -19,8 +19,8 @@ import qualified Data.Map as Map
 
 import Sequence.Matrix.Operations.Deterministic
 
-test1 = eitherOr 0.5 emptySequence emptySequence
-test2 = eitherOr 0.5 (skip 1) emptySequence
+--test1 = eitherOr 0.5 emptySequence emptySequence
+--test2 = eitherOr 0.5 (skip 1) emptySequence
 
 eitherOr' p a b = (startEndsA, startEndsB, startEnds)
   where (startA, mainTransA, startEndsA, endTransA) = splitTransTokens $ trans a

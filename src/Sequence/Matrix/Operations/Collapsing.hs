@@ -9,6 +9,8 @@ import Data.Monoid ((<>))
 import Data.List (find, nub)
 import Data.Maybe (fromJust, fromMaybe)
 import Control.Applicative (liftA2)
+import Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IntMap
 import Data.Vector (Vector)
 import qualified Data.Vector as V
 --import qualified Math.LinearAlgebra.Sparse as M
@@ -41,7 +43,15 @@ collapse :: (Eq a) => (Vector a -> a) -> Int -> MatSeq a -> MatSeq a
 collapse concatLabels n seq = --traceShow (V.length (stateLabels seq), (trans seq), n, "trans'", trans', tuples) $
   MatSeq {
     trans = if M.isZeroMx trans' then M.sparseMx [[1]] else trans'
-  , stateLabels = V.map (\(V.unzip -> (s, t)) -> (concatLabels s, StateTag 0 (V.toList t))) stateTuples
+  , stateLabels = V.map (\sls ->
+                           let ls = V.map stateLabel sls
+                               ts = V.map stateTag sls
+                               ss = V.map tagSet sls
+                           in StateLabel
+                              (concatLabels ls)
+                              (StateTag 0 (V.toList ts))
+                              (IntMap.unions . V.toList $ ss))
+                  stateTuples
   }
   where (main, ends) = splitEnds (trans seq)
         squareMain = addStartColumn main

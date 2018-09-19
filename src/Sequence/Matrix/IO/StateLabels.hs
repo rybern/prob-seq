@@ -13,10 +13,12 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 import qualified Data.ByteString.Conversion as BS
 import qualified Data.Text as Text
 import Data.Attoparsec.Text
+import Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IntMap
 
 -- Writing
 
-showStateLabels :: Vector (String, StateTag)
+showStateLabels :: Vector (StateLabel String)
                 -> ByteString
 showStateLabels = V.foldl1' BS.append . flip V.replicate "#\n" . V.length
 
@@ -48,10 +50,10 @@ showStateLabels' = V.toList . V.map showPair
 
 -- Reading
 
-parseStateLabels :: Parser (Vector (String, StateTag))
+parseStateLabels :: Parser (Vector (StateLabel String))
 parseStateLabels = V.fromList <$> sepBy parseStatePair endOfLine
 
-parseStatePair :: Parser (String, StateTag)
+parseStatePair :: Parser (StateLabel String)
 parseStatePair = do
   _ <- char '#'
   textLabel <- takeWhile1 (/= ':')
@@ -61,7 +63,7 @@ parseStatePair = do
 
   stateTag <- parseStateTag
 
-  return (label, stateTag)
+  return (StateLabel label stateTag IntMap.empty)
 
 parseStateTag :: Parser StateTag
 parseStateTag = do

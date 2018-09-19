@@ -17,6 +17,8 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IntMap
 
 
 
@@ -35,5 +37,5 @@ skip n = MatSeq {
 state :: s -> MatSeq s
 state s = MatSeq {
     trans = M.idMx 2
-  , stateLabels = V.singleton (s, StateTag 0 [])
+  , stateLabels = V.singleton (StateLabel s (StateTag 0 []) (IntMap.empty))
   }

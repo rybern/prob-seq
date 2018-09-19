@@ -27,7 +27,7 @@ sampleSeqWithProb sample seq = do
 
 sampleSeq :: (MonadRandom m) => (M.SparseVector -> m Int) -> MatSeq s -> m (V.Vector s, Int)
 sampleSeq sample seq =
-  (\(ixs, endIx) -> (V.map (fst . (stateLabels seq V.!)) ixs, endIx)) <$> sampleSeqIxs sample seq
+  (\(ixs, endIx) -> (V.map (stateLabel . (stateLabels seq V.!)) ixs, endIx)) <$> sampleSeqIxs sample seq
 
 sampleSeqIxs :: (MonadRandom m) => (M.SparseVector -> m Int) -> MatSeq s -> m (V.Vector Int, Int)
 sampleSeqIxs sample seq = do

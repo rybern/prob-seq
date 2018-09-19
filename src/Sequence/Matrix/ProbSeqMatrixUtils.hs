@@ -4,8 +4,10 @@ module Sequence.Matrix.ProbSeqMatrixUtils where
 import qualified SparseMatrix as M
 import Sequence.Matrix.SparseMatrixUtils
 import Sequence.Matrix.Types
-import qualified Data.Vector as V
+import Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IntMap
 import Data.Vector (Vector)
+import qualified Data.Vector as V
 
 cleanTrans :: Trans -> Trans
 cleanTrans = addStartColumn . collapseEnds
@@ -58,20 +60,29 @@ forwardDiagonal :: Int -> M.SparseMatrix
 forwardDiagonal n = M.delRow 1 . M.idMx . succ $ n
 
 mapStates :: (a -> b) -> MatSeq a -> MatSeq b
-mapStates f seq = seq {stateLabels = V.map (\(a, ts) -> (f a, ts)) (stateLabels seq)}
+mapStates f seq = seq {stateLabels = V.map (\(StateLabel a t s) ->
+                                              (StateLabel (f a) t s)) (stateLabels seq)}
 
 
 removeLabelSeq :: MatSeq a -> MatSeq a
 removeLabelSeq seq = seq { stateLabels = removeLabel (stateLabels seq) }
 
-removeLabel :: Vector (a, StateTag) -> Vector (a, StateTag)
-removeLabel = V.map (\(s, StateTag _ (t:_)) -> (s, t))
+removeLabel :: Vector (StateLabel s) -> Vector (StateLabel s)
+removeLabel = V.map (\(StateLabel l (StateTag _ (t:_)) s) -> StateLabel l t s)
 
 appendLabelSeq :: Int -> MatSeq a -> MatSeq a
 appendLabelSeq label seq = seq { stateLabels = appendLabel label (stateLabels seq) }
 
-appendLabel :: Int -> Vector (a, StateTag) -> Vector (a, StateTag)
-appendLabel label = V.map (\(s, ts) -> (s, StateTag label [ts]))
+appendLabel :: Int -> Vector (StateLabel s) -> Vector (StateLabel s)
+appendLabel label = V.map (\(StateLabel l t s) ->
+                              (StateLabel l (StateTag label [t]) s))
+
+appendLabel' :: Maybe Int -> Int -> Vector (StateLabel s) -> Vector (StateLabel s)
+appendLabel' mTagID label = V.map (\(StateLabel l t s) ->
+                                    (StateLabel
+                                      l
+                                      (StateTag label [t])
+                                      (maybe s (\tagID -> IntMap.insert tagID label s) mTagID)))
 
 reachableSkips :: Trans -> [Int]
 reachableSkips m = map fst . filter snd . zip [0..] . map M.isNotZeroVec . drop (nStates m) . V.toList . allCols $ m
