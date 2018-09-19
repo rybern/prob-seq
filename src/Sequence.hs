@@ -16,6 +16,10 @@ import Sequence.Matrix.Sampling as X
   , randToIO
   )
 
+import Inference as X
+
+import Sequence.Tags as X
+
 import Sequence.Matrix.Emissions as X
 
 import Sequence.Matrix.IO as X

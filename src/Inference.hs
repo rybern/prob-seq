@@ -7,7 +7,9 @@ import Data.Vector (Vector)
 import qualified Data.Vector as V
 import System.IO.Unsafe
 
-import Sequence
+--import Sequence
+import Sequence.Types
+import Sequence.Matrix
 import Sequence.Matrix.ProbSeqMatrixUtils
 import SparseMatrix hiding (trans)
 
@@ -41,7 +43,7 @@ matSeqTriples :: MatSeq a
 matSeqTriples = map (\((r, c), p) -> (r - 1, c - 1, p)) . tail . toAssocList . cleanTrans . trans
 
 buildEmissionPerm :: (Ord a, Show a) => Map a Int -> MatSeq a -> V.Vector Int
-buildEmissionPerm m = V.map (getIndex . fst) . stateLabels
+buildEmissionPerm m = V.map (getIndex . stateLabel) . stateLabels
   where getIndex k = case Map.lookup k m of
           Just ix -> ix
           Nothing -> error $ "There was a label in the model that was not in the emissions data: " ++ show k

@@ -11,7 +11,10 @@ import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Control.Monad.State hiding (state)
 import Control.Monad.Reader
-import Sequence
+--import Sequence
+import Sequence.Types
+import Sequence.Constructors
+import Sequence.Matrix
 
 import Inference
 
