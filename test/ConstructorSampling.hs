@@ -16,6 +16,12 @@ import Sequence.Matrix.Emissions
 import Sequence.Matrix.Operations
 import Sequence.Constructors
 
+epsilon :: Prob
+epsilon = 1e-10
+
+withinEps :: Prob -> Prob -> Bool
+withinEps a b = abs (a - b) < epsilon
+
 sampleConstructor :: Eq s
                   => Constructor s (MatSeq s)
                   -> (Vector s, Int)
@@ -58,6 +64,7 @@ constructorSeqProb (AndThen m1 m2) (seq, sk) = sum $ do
 constructorSeqProb (Possibly p m) s = if s == (V.empty, 0)
                                      then (1 - p) + p * seqProb m s
                                      else p * seqProb m s
+constructorSeqProb (UniformDistOver ms) s = let p = 1 / fromIntegral (length ms) in sum $ map (\m -> p * seqProb m s) ms
 constructorSeqProb (FiniteDistOver ms) s = sum $ map (\(m, p) -> p * seqProb m s) ms
 constructorSeqProb (Collapse split _ n m) (V.map split -> ss, sk) =
   if not valid

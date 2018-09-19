@@ -67,12 +67,6 @@ checkConstructorExact nSamples c@(ConstructorWith {..}) = do
       }
 
 
-epsilon :: Prob
-epsilon = 1e-10
-
-withinEps :: Prob -> Prob -> Bool
-withinEps a b = abs (a - b) < epsilon
-
 checkProbSeqExact :: (Eq s, MonadRandom m)
                   => Int
                   -> ProbSeqWith s (MatSeq s)

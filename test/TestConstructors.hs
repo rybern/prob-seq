@@ -83,9 +83,6 @@ deterministicIsConstantProp' s1 = do
   return $ samples
 
 
-instance Arbitrary e => Arbitrary (V.Vector e) where
-  arbitrary = V.fromList <$> arbitrary
-
 {-
 findFailing :: IO [String]
 findFailing = do

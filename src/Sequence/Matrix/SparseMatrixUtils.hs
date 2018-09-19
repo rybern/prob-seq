@@ -21,6 +21,15 @@ toDense :: M.SparseMatrix Double -> DM.MatrixXd
 toDense = DM.fromList . map allElems . allRows
 -}
 
+buildMatrixM :: (Monad m)
+             => (M.Index, M.Index)
+             -> ((M.Index, M.Index) -> m Double)
+             -> m M.SparseMatrix
+buildMatrixM (nr, nc) f =
+  M.sparseMx <$> mapM (mapM f) [[ (r, c)
+                                | c <- [1..nc]]
+                               | r <- [1..nr]]
+
 buildMatrix :: (M.Index, M.Index)
             -> ((M.Index, M.Index) -> Double)
             -> M.SparseMatrix

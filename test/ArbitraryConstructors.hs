@@ -26,6 +26,9 @@ treeToVec (Leaf s) = V.singleton (Leaf s)
 vecToTree :: V.Vector (Tree s) -> Tree s
 vecToTree = Branch
 
+instance Arbitrary e => Arbitrary (V.Vector e) where
+  arbitrary = V.fromList <$> arbitrary
+
 instance Arbitrary s => Arbitrary (SmallProbSeq s) where
   arbitrary = SmallProbSeq <$> arbitraryProbSeq 0.9
 
@@ -45,7 +48,6 @@ arbitraryBranchConstructor = oneof $
   [
     arbitraryEitherOr
   , arbitraryAndThen
-  , arbitrarySkip
   , arbitraryPossibly
   , arbitraryFiniteDistOver
   , arbitraryReverseSequence
