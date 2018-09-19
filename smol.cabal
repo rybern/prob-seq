@@ -23,6 +23,7 @@ executable profiling
 library
   hs-source-dirs:      src
   exposed-modules:     Sequence
+                     , Sequence.Tags
                      , Sequence.Constructors
                      , Sequence.Matrix
                      , Sequence.Matrix.Sampling

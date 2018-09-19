@@ -12,6 +12,7 @@ extra-deps:
 # - eigen-2.1.7
 # - eigen-3.3.4.1
 - eigen-3.3.4.0
+- containers-0.5.8.1
 
 flags: {}
 
