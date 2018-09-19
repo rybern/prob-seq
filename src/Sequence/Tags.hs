@@ -13,6 +13,8 @@ import Control.Monad.State hiding (state)
 import Control.Monad.Reader
 import Sequence
 
+import Inference
+
 type TagID = Int
 newtype TagGen = TagGen Int
 
@@ -34,8 +36,6 @@ newTagID = do
   return i
 
 type TagIxs = Map TagID (Vector IntSet)
-
-data Emissions d = Emissions -- this should be a Matrix Prob and s <-> Index
 data Posterior = Posterior { unposterior :: IntMap Prob }
 
 subsetIxs :: IntSet -> Posterior -> Posterior
@@ -55,10 +55,10 @@ tagDist (Tag { tagId = tagId, values = values }) = do
 
 type Query = Reader (Posterior, TagIxs)
 
-buildQuery :: ProbSeq d -> Query a -> Emissions d -> a
-buildQuery ps q emis = runReader q (post, ixs)
+buildQuery :: (Ord d, Show d) => InferenceEngine (Vector Prob) -> ProbSeq d -> Query a -> Emissions d -> a
+buildQuery fn ps q emis = runReader q (post, ixs)
   where (ms, ixs) = buildMatSeq' ps
-        post = posterior ms emis
+        post = posterior fn emis ms
 
 observe :: Emissions d -> State TagGen (Emissions d -> a) -> a
 observe ems s = (runTagGen s) ems
@@ -84,21 +84,23 @@ condition1 t pred next = do
   (_, ixs) <- ask
   local (const (post, ixs)) next
 
-example :: Emissions Char -> (Prob, Prob)
-example ems = observe ems $ do
+example :: InferenceEngine (Vector Prob) -> Emissions Char -> (Prob, Prob)
+example fn ems = observe ems $ do
   (ps1, a) <- eitherOr' 0.4 (state 'a') (state 'b')
   (ps2, b) <- eitherOr' 0.5 ps1 (state 'c')
   let ps = andThen ps2 (state 'd')
-  return . buildQuery ps $ do
+  return . buildQuery fn ps $ do
     anb <- condition1 b id $ event1 a not
     na <- event1 b not
     return (anb, na)
 
--- Implement elsewhere, using placeholders
+posterior :: (Ord s, Show s) => InferenceEngine (Vector Prob) -> Emissions s -> MatSeq s -> Posterior
+posterior fn ems = Posterior . vecToIntMap . infer fn ems
 
--- TODO SHMM integration should definitely be in SMoL not SMoL-Minion
-posterior :: MatSeq s -> Emissions s -> Posterior
-posterior ms ems = Posterior IntMap.empty
+vecToIntMap :: Vector a -> IntMap a
+vecToIntMap = IntMap.fromList . V.toList . V.indexed
+
+-- TODO
 
 eitherOr' :: Prob -> ProbSeq s -> ProbSeq s -> State TagGen (ProbSeq s, Tag Bool)
 eitherOr' = undefined

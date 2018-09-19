@@ -1,0 +1,10 @@
++ Tags+Query monad interface
+- Migrate SHMM integration out of smol-minion into smol-shmm, leave a hole in shmm's interface for an inference engine
+  shmm ---\
+           ---> smol-shmm ---> smol-minion
+  smol ---/
+  smol-shmm can depend on smol and depend on smol and should implement
+            posterior :: MatSeq s -> Emissions s -> Posterior
+     or at least provide a new version of interface functions with SHMM integrated,
+      maybe smol provides those interface functions with a low-level hole for SHMM
+- Add tag tracking to buildMatSeq, constructor wrappers

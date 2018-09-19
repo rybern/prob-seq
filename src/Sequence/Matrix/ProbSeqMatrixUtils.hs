@@ -7,6 +7,12 @@ import Sequence.Matrix.Types
 import qualified Data.Vector as V
 import Data.Vector (Vector)
 
+cleanTrans :: Trans -> Trans
+cleanTrans = addStartColumn . collapseEnds
+
+unCleanTrans :: Trans -> Trans
+unCleanTrans t = (snd . M.popRow (M.height t) $ t)
+
 getNormalTrans :: MatSeq s -> Trans
 getNormalTrans = addFixedEndRow . addStartColumn . collapseEnds . trans
 

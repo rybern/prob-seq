@@ -2,15 +2,10 @@ resolver: lts-9.12
 
 packages:
 - '.'
-- location: ../shmm
-  extra-dep: true
 
 extra-deps: 
 - sparse-lin-alg-0.4.3
 - vector-0.12.0.0
-# - shmm-0.1.0.0
-# - eigen-2.1.7
-# - eigen-3.3.4.1
 - eigen-3.3.4.0
 - containers-0.5.8.1
 
@@ -20,4 +15,3 @@ extra-package-dbs: []
 
 nix:
   packages: [eigen3_3, pkgconfig, zlib, gmp, ncurses, gcc, binutils]
-  #packages: [eigen3_3, pkgconfig, zlib, gmp, ncurses, gcc5, binutils]

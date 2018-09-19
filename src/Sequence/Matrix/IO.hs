@@ -64,9 +64,6 @@ readSTFile :: FilePath
             -> IO (Either ParseError (MatSeq String))
 readSTFile = readMatSeqFile unCleanTrans
 
-unCleanTrans :: Trans -> Trans
-unCleanTrans t = (snd . M.popRow (M.height t) $ t)
-
 writeSTHandle :: MatSeq String
               -> Handle
               -> IO ()
@@ -76,6 +73,3 @@ writeSTFile :: MatSeq String
             -> FilePath
             -> IO ()
 writeSTFile seq fp = withFile fp WriteMode (writeSTHandle seq)
-
-cleanTrans :: Trans -> Trans
-cleanTrans = addStartColumn . collapseEnds
