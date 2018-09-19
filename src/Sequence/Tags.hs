@@ -35,6 +35,9 @@ newTagID = do
   put $ TagGen (i + 1)
   return i
 
+newTag :: Vector c -> State TagGen (Tag c)
+newTag values = (\tid -> Tag tid values) <$> newTagID
+
 type TagIxs = Map TagID (Vector IntSet)
 data Posterior = Posterior { unposterior :: IntMap Prob }
 
