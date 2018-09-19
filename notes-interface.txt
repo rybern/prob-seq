@@ -13,3 +13,5 @@
   + sufficient information in MatSeq
   + mechanism for each constructor operation to insert the operation during build
   - sufficient information: (monadic) smart constructor -> Constructor -> operation
+      How to encode in the ProbSeq tree/constructor?
+      ProbSeqWith?

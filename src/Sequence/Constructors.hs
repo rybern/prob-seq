@@ -65,7 +65,8 @@ instance (Show s, Show t) => Show (Constructor s t) where
 instance (Show s) => Show (Fix (Constructor s)) where
   show t = cata showConstructor t
 
-type ProbSeq s = Fix (Constructor s)
+type ProbSeq s = ProbSeqWith s (Maybe Int)
+--type ProbSeq s = Fix (Constructor s)
 
 data ConstructorWith s a t = ConstructorWith {
     with :: a
@@ -76,9 +77,8 @@ data ConstructorWith s a t = ConstructorWith {
 instance (Show s, Show a) => Show (Fix (ConstructorWith s a)) where
   show t = cata show t
 
-newtype ProbSeqWith s a = ProbSeqWith (Fix (ConstructorWith s a))
+newtype ProbSeqWith s a = ProbSeqWith { unProbSeqWith :: Fix (ConstructorWith s a) }
   deriving Show
-unProbSeqWith (ProbSeqWith x) = x
 
 instance Functor (ProbSeqWith s) where
   fmap f (ProbSeqWith (Fix constr)) = ProbSeqWith . Fix $
@@ -104,68 +104,72 @@ mapWith cf (ProbSeqWith (Fix constr)) =
   in ProbSeqWith . Fix $ constr' {
       constructor = (unProbSeqWith . mapWith cf . ProbSeqWith) <$> constructor constr'
     }
+
+untagged :: Constructor s (ProbSeq s) -> ProbSeq s
+untagged c = ProbSeqWith . Fix $ ConstructorWith Nothing (unProbSeqWith <$> c)
+
 emptySequence :: ProbSeq s
-emptySequence = Fix $ EmptySequence
+emptySequence = untagged EmptySequence
 
 state :: s -> ProbSeq s
-state v = Fix $ State v
+state v = untagged $ State v
 
 skip :: Int -> ProbSeq s
-skip n = Fix $ Skip n
+skip n = untagged $ Skip n
 
 skipDist :: [Prob] -> ProbSeq s -> ProbSeq s
-skipDist ps a = Fix $ SkipDist ps a
+skipDist ps a = untagged $ SkipDist ps a
 
 matrixForm :: (MatSeq s) -> ProbSeq s
-matrixForm m = Fix $ MatrixForm m
+matrixForm m = untagged $ MatrixForm m
 
 eitherOr :: Prob -> ProbSeq s -> ProbSeq s -> ProbSeq s
-eitherOr p a b = Fix $ EitherOr p a b
+eitherOr p a b = untagged $ EitherOr p a b
 
 andThen :: ProbSeq s -> ProbSeq s -> ProbSeq s
-andThen a b = Fix $ AndThen a b
+andThen a b = untagged $ AndThen a b
 
 andThen' :: ProbSeq s -> ProbSeq s -> ProbSeq s
-andThen' a b = Fix $ AndThen' a b
+andThen' a b = untagged $ AndThen' a b
 
 geometricRepeat :: Prob -> ProbSeq s -> ProbSeq s
-geometricRepeat p a = Fix $ GeometricRepeat p a
+geometricRepeat p a = untagged $ GeometricRepeat p a
 
 reverseSequence :: ProbSeq s -> ProbSeq s
-reverseSequence a = Fix $ ReverseSequence a
+reverseSequence a = untagged $ ReverseSequence a
 
 collapse :: (s -> Vector s) -> (Vector s -> s) -> Int -> ProbSeq s -> ProbSeq s
-collapse f g n a = Fix $ Collapse f g n a
+collapse f g n a = untagged $ Collapse f g n a
 
 possibly :: Prob -> ProbSeq s -> ProbSeq s
-possibly p a = Fix $ Possibly p a
+possibly p a = untagged $ Possibly p a
 
 uniformDistOver :: [ProbSeq s] -> ProbSeq s
-uniformDistOver as = Fix $ UniformDistOver as
+uniformDistOver as = untagged $ UniformDistOver as
 
 finiteDistOver :: [(ProbSeq s, Prob)] -> ProbSeq s
-finiteDistOver pairs = Fix $ FiniteDistOver pairs
+finiteDistOver pairs = untagged $ FiniteDistOver pairs
 
 uniformDistRepeat :: Int -> ProbSeq s -> ProbSeq s
-uniformDistRepeat n a = Fix $ UniformDistRepeat n a
+uniformDistRepeat n a = untagged $ UniformDistRepeat n a
 
 uniformDistRepeat' :: Int -> ProbSeq s -> ProbSeq s
-uniformDistRepeat' n a = Fix $ UniformDistRepeat' n a
+uniformDistRepeat' n a = untagged $ UniformDistRepeat' n a
 
 finiteDistRepeat :: [Prob] -> ProbSeq s -> ProbSeq s
-finiteDistRepeat ps a = Fix $ FiniteDistRepeat ps a
+finiteDistRepeat ps a = untagged $ FiniteDistRepeat ps a
 
 finiteDistRepeat' :: [Prob] -> ProbSeq s -> ProbSeq s
-finiteDistRepeat' ps a = Fix $ FiniteDistRepeat' ps a
+finiteDistRepeat' ps a = untagged $ FiniteDistRepeat' ps a
 
 series :: [ProbSeq s] -> ProbSeq s
-series as = Fix $ Series as
+series as = untagged $ Series as
 
 series' :: [ProbSeq s] -> ProbSeq s
-series' as = Fix $ Series' as
+series' as = untagged $ Series' as
 
 repeatSequence :: Int -> ProbSeq s -> ProbSeq s
-repeatSequence n a = Fix $ Repeat n a
+repeatSequence n a = untagged $ Repeat n a
 
 repeatSequence' :: Int -> ProbSeq s -> ProbSeq s
-repeatSequence' n a = Fix $ Repeat n a
+repeatSequence' n a = untagged $ Repeat n a
