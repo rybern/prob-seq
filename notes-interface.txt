@@ -10,3 +10,6 @@
       maybe smol provides those interface functions with a low-level hole for SHMM
 
 - Add tag tracking to buildMatSeq, constructor wrappers
+  + sufficient information in MatSeq
+  + mechanism for each constructor operation to insert the operation during build
+  - sufficient information: (monadic) smart constructor -> Constructor -> operation
