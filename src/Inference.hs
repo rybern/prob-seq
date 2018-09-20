@@ -17,7 +17,7 @@ type VecMat = Vector (Vector Prob) -- use Data.Matrix?
 data Emissions d = Emissions {
     emissions :: VecMat
   , indexMap :: Map d Int
-  }
+  } deriving Show
 
 type InferenceEngine res = Int -> [(Int, Int, Double)] -> VecMat -> Vector Int -> res
 

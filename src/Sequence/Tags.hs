@@ -22,6 +22,16 @@ import Inference
 
 type TagIxs = IntMap (Vector IntSet)
 data Posterior = Posterior { unposterior :: IntMap Prob }
+  deriving Show
+
+{-
+ restrict keys appears to be broken
+
+let s = (IntSet.fromList [2..4])
+let m = IntMap.fromList $ zip [0..5] [1..6]
+IntMap.restrictKeys m s
+IntMap.filterWithKey (\k _ -> k `IntSet.member` s) m
+-}
 
 subsetIxs :: IntSet -> Posterior -> Posterior
 subsetIxs ixs (Posterior ems) = Posterior $ IntMap.restrictKeys ems ixs
@@ -70,16 +80,6 @@ condition1 t pred next = do
   (_, ixs) <- ask
   local (const (post, ixs)) next
 
-example :: InferenceEngine (Vector Prob) -> Emissions Char -> (Prob, Prob)
-example fn ems = observe ems $ do
-  (ps1, a) <- eitherOrM 0.4 (state 'a') (state 'b')
-  (ps2, b) <- eitherOrM 0.5 ps1 (state 'c')
-  let ps = andThen ps2 (state 'd')
-  return . buildQuery fn ps $ do
-    anb <- condition1 b id $ event1 a not
-    na <- event1 b not
-    return (anb, na)
-
 posterior :: (Ord s, Show s) => InferenceEngine (Vector Prob) -> Emissions s -> MatSeq s -> Posterior
 posterior fn ems = Posterior . vecToIntMap . infer fn ems
 
@@ -96,6 +96,6 @@ tagIxs ms = IntMap.fromSet ixSet ids
                       (\value -> IntMap.findWithDefault IntSet.empty value m))
                   . IntMap.fromListWith IntSet.union
                   . V.toList
-                  . V.mapMaybe (\(ix, m) -> ((ix,) . IntSet.singleton) <$> IntMap.lookup tid m)
+                  . V.mapMaybe (\(ix, m) -> (,IntSet.singleton ix) <$> IntMap.lookup tid m)
                   . V.indexed
                   $ mapVec

@@ -24,6 +24,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Sequence
                      , Sequence.Tags
+                     , Sequence.Tags.Utils
                      , Sequence.Constructors
                      , Sequence.Matrix
                      , Sequence.Matrix.Sampling

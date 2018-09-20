@@ -360,6 +360,7 @@ popCol c m = if isEmptyMx m
 pruned :: SparseMatrix -> SparseMatrix
 pruned = SM . M.pruned 0 . unSM
 
+{-
 testA = testMat 3 4 1
 testB = testMat 3 3 13
 testC = testMat 1 4 22
@@ -372,7 +373,7 @@ test2 = replaceRow (SV $ sparseMx [[-1, -2, -3, -4, -5, -6, -7]]) 2 test1
 test3 = replaceRow' (SV $ sparseMx [[-1, -2, -3, -4, -5, -6, -7]]) 2 test1
 test4 = addRow (SV $ sparseMx [[-1, -2, -3, -4, -5, -6, -7]]) 2 test1
 test5 = addCol (SV $ sparseMx [[-1, -2, -3, -4]]) 1 test1
-
+-}
 
 {-
 popRow :: (Num a) => Index -> SparseMatrix a -> (SparseVector a, SparseMatrix a)
