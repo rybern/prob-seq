@@ -29,12 +29,12 @@ eitherOr' p a b = (startEndsA, startEndsB, startEnds)
         startEnds = (p `M.scaleV` startEndsA) `M.addVec` ((1 - p) `M.scaleV` startEndsB)
 
 
-eitherOr :: Prob -> MatSeq s -> MatSeq s -> MatSeq s
-eitherOr p a b = MatSeq {
+eitherOr :: (Maybe Int) -> Prob -> MatSeq s -> MatSeq s -> MatSeq s
+eitherOr mt p a b = MatSeq {
     trans = joinTransTokens (start, mainTrans, startEnds, ends)
   , stateLabels = stateLabels'
   }
-  where stateLabels' = appendLabel 0 (stateLabels a) <> appendLabel 1 (stateLabels b)
+  where stateLabels' = appendLabel' mt 0 (stateLabels a) <> appendLabel' mt 1 (stateLabels b)
 
         (startA, mainTransA, startEndsA, endTransA) = splitTransTokens $ trans a
         (startB, mainTransB, startEndsB, endTransB) = splitTransTokens $ trans b
@@ -48,5 +48,5 @@ eitherOr p a b = MatSeq {
 
         mainTrans = mainTransA `diagConcat` mainTransB
 
-possibly :: Prob -> MatSeq s -> MatSeq s
-possibly p = eitherOr (1-p) emptySequence
+possibly :: (Maybe Int) -> Prob -> MatSeq s -> MatSeq s
+possibly t p = eitherOr t (1-p) emptySequence

@@ -24,7 +24,7 @@ import Sequence.Matrix.Operations.EitherOr
 
 type SkipAdd = Bool
 
-a = (eitherOr 0.5 (skip 1) (state 0))
+a = (eitherOr Nothing 0.5 (skip 1) (state 0))
 b = (state 1)
 test5 = andThen a b
 

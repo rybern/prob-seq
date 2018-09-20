@@ -13,7 +13,7 @@ data Constructor s t =
   | Skip Int
   | SkipDist [Prob] t
   | MatrixForm (MatSeq s)
-  | EitherOr Prob t t
+  | EitherOr (Maybe Int) Prob t t
   | AndThen t t
   | AndThen' t t
   -- p probability of STAYING in t
@@ -21,13 +21,13 @@ data Constructor s t =
   | ReverseSequence t
   | Collapse (s -> Vector s) (Vector s -> s) Int t
 
-  | Possibly Prob t
-  | UniformDistOver [t]
-  | FiniteDistOver [(t, Prob)]
-  | FiniteDistRepeat [Prob] t
-  | FiniteDistRepeat' [Prob] t
-  | UniformDistRepeat Int t
-  | UniformDistRepeat' Int t
+  | Possibly (Maybe Int) Prob t
+  | UniformDistOver (Maybe Int) [t]
+  | FiniteDistOver (Maybe Int) [(t, Prob)]
+  | FiniteDistRepeat (Maybe Int) [Prob] t
+  | FiniteDistRepeat' (Maybe Int) [Prob] t
+  | UniformDistRepeat (Maybe Int) Int t
+  | UniformDistRepeat' (Maybe Int) Int t
   | Series [t]
   | Series' [t]
   | Repeat Int t
@@ -43,15 +43,15 @@ showConstructor (State s) = "state (" ++ show s ++ ")"
 showConstructor (Skip n) = "skip " ++ show n
 showConstructor (SkipDist ps s) = "skipDist " ++ show ps ++ " (" ++ s ++ ")"
 showConstructor (MatrixForm _) = "mat"
-showConstructor (EitherOr p a b) = "eitherOr " ++ show p ++ " (" ++ a ++ ") (" ++ b ++ ")"
+showConstructor (EitherOr t p a b) = "eitherOr " ++ show p ++ " (" ++ a ++ ") (" ++ b ++ ")"
 showConstructor (AndThen a b) = "andThen (" ++ a ++ ") (" ++ b ++ ")"
 showConstructor (AndThen' a b) = "andThen' (" ++ a ++ ") (" ++ b ++ ")"
-showConstructor (Possibly p a) = "possibly " ++ show p ++ " (" ++ a ++ ")"
-showConstructor (UniformDistOver as) = "uniformDistOver " ++ showL id as
-showConstructor (FiniteDistOver as) = "finiteDistOver " ++ showL (\(s, p) -> "(" ++ s ++ ", " ++ show p ++ ")") as
+showConstructor (Possibly t p a) = "possibly " ++ show p ++ " (" ++ a ++ ")"
+showConstructor (UniformDistOver t as) = "uniformDistOver " ++ showL id as
+showConstructor (FiniteDistOver t as) = "finiteDistOver " ++ showL (\(s, p) -> "(" ++ s ++ ", " ++ show p ++ ")") as
 showConstructor (GeometricRepeat p a) = "geometricRepeat " ++ show p ++ " (" ++ a ++ ")"
-showConstructor (FiniteDistRepeat ps a) = "finiteDistRepeat " ++ show ps ++ " (" ++ a ++ ")"
-showConstructor (UniformDistRepeat n a) = "uniformDistRepeat " ++ show n ++ " (" ++ a ++ ")"
+showConstructor (FiniteDistRepeat t ps a) = "finiteDistRepeat " ++ show ps ++ " (" ++ a ++ ")"
+showConstructor (UniformDistRepeat t n a) = "uniformDistRepeat " ++ show n ++ " (" ++ a ++ ")"
 showConstructor (ReverseSequence a) = "reverseSequence (" ++ a ++ ")"
 showConstructor (Collapse _ _ n a) = "collapse treeToVec vecToTree " ++ show n ++ " (" ++ a ++ ")"
 showConstructor (Series as) = "series " ++ showL id as
@@ -120,7 +120,7 @@ matrixForm :: (MatSeq s) -> ProbSeq s
 matrixForm m = Fix $ MatrixForm m
 
 eitherOr :: Prob -> ProbSeq s -> ProbSeq s -> ProbSeq s
-eitherOr p a b = Fix $ EitherOr p a b
+eitherOr p a b = Fix $ EitherOr Nothing p a b
 
 andThen :: ProbSeq s -> ProbSeq s -> ProbSeq s
 andThen a b = Fix $ AndThen a b
@@ -138,25 +138,25 @@ collapse :: (s -> Vector s) -> (Vector s -> s) -> Int -> ProbSeq s -> ProbSeq s
 collapse f g n a = Fix $ Collapse f g n a
 
 possibly :: Prob -> ProbSeq s -> ProbSeq s
-possibly p a = Fix $ Possibly p a
+possibly p a = Fix $ Possibly Nothing p a
 
 uniformDistOver :: [ProbSeq s] -> ProbSeq s
-uniformDistOver as = Fix $ UniformDistOver as
+uniformDistOver as = Fix $ UniformDistOver Nothing as
 
 finiteDistOver :: [(ProbSeq s, Prob)] -> ProbSeq s
-finiteDistOver pairs = Fix $ FiniteDistOver pairs
+finiteDistOver pairs = Fix $ FiniteDistOver Nothing pairs
 
 uniformDistRepeat :: Int -> ProbSeq s -> ProbSeq s
-uniformDistRepeat n a = Fix $ UniformDistRepeat n a
+uniformDistRepeat n a = Fix $ UniformDistRepeat Nothing n a
 
 uniformDistRepeat' :: Int -> ProbSeq s -> ProbSeq s
-uniformDistRepeat' n a = Fix $ UniformDistRepeat' n a
+uniformDistRepeat' n a = Fix $ UniformDistRepeat' Nothing n a
 
 finiteDistRepeat :: [Prob] -> ProbSeq s -> ProbSeq s
-finiteDistRepeat ps a = Fix $ FiniteDistRepeat ps a
+finiteDistRepeat ps a = Fix $ FiniteDistRepeat Nothing ps a
 
 finiteDistRepeat' :: [Prob] -> ProbSeq s -> ProbSeq s
-finiteDistRepeat' ps a = Fix $ FiniteDistRepeat' ps a
+finiteDistRepeat' ps a = Fix $ FiniteDistRepeat' Nothing ps a
 
 series :: [ProbSeq s] -> ProbSeq s
 series as = Fix $ Series as

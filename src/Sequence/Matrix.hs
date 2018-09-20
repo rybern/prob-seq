@@ -34,43 +34,43 @@ buildConstructor (State s) = Ops.state s
 buildConstructor (MatrixForm v) = v
 buildConstructor (Skip n) = Ops.skip n
 buildConstructor (SkipDist ps a) = Ops.skipDist ps a
-buildConstructor (EitherOr p a1 a2) = Ops.eitherOr p a1 a2
+buildConstructor (EitherOr t p a1 a2) = Ops.eitherOr t p a1 a2
 buildConstructor (AndThen a1 a2) = Ops.andThen a1 a2
 buildConstructor (AndThen' a1 a2) = Ops.andThen' a1 a2
 buildConstructor (ReverseSequence a1) = Ops.reverseSequence a1
 buildConstructor (GeometricRepeat p a1) = Ops.geometricRepeat p a1
 buildConstructor (Collapse _ f n a1) = Ops.collapse f n a1
 
-buildConstructor (UniformDistOver seqs) =
+buildConstructor (UniformDistOver t seqs) =
   let uniform = recip . fromIntegral . length $ seqs
-  in buildConstructor $ FiniteDistOver $ map (\seq -> (seq, uniform)) seqs
-buildConstructor (FiniteDistOver pairs) = f . map (\(i, (a, p)) -> (appendLabelSeq i a, p)) . zip [0..] $ pairs
+  in buildConstructor $ FiniteDistOver t $ map (\seq -> (seq, uniform)) seqs
+buildConstructor (FiniteDistOver t pairs) = f . map (\(i, (a, p)) -> (appendLabelSeq i a, p)) . zip [0..] $ pairs
   where f [(a, _)] = a
-        f ((a, p) : rest) = removeLabelSeq . Ops.eitherOr p a $
+        f ((a, p) : rest) = removeLabelSeq . Ops.eitherOr Nothing p a $
           f $ map (\(a', p') -> (a', p' / (1 - p))) rest
-buildConstructor (UniformDistRepeat n s) =
+buildConstructor (UniformDistRepeat t n s) =
   let uniform = recip . fromIntegral . succ $ n
-  in buildConstructor $ FiniteDistRepeat (replicate (n+1) uniform) s
-buildConstructor (UniformDistRepeat' n s) =
+  in buildConstructor $ FiniteDistRepeat t (replicate (n+1) uniform) s
+buildConstructor (UniformDistRepeat' t n s) =
   let uniform = recip . fromIntegral . succ $ n
-  in buildConstructor $ FiniteDistRepeat' (replicate (n+1) uniform) s
-buildConstructor (FiniteDistRepeat ps a) = f 0 ps a
+  in buildConstructor $ FiniteDistRepeat' t (replicate (n+1) uniform) s
+buildConstructor (FiniteDistRepeat t ps a) = f 0 ps a
   where f _ [] _ = Ops.emptySequence
-        f ix ps a = removeLabelSeq $ Ops.eitherOr p
+        f ix ps a = removeLabelSeq $ Ops.eitherOr Nothing p
           Ops.emptySequence
           (removeLabelSeq $ Ops.andThen
             (appendLabelSeq ix a)
             (f (ix + 1) rest a))
           where (p:rest) = normalize ps
-buildConstructor (FiniteDistRepeat' ps a) = f 0 ps a
+buildConstructor (FiniteDistRepeat' t ps a) = f 0 ps a
   where f _ [] _ = Ops.emptySequence
-        f ix ps a = removeLabelSeq $ Ops.eitherOr p
+        f ix ps a = removeLabelSeq $ Ops.eitherOr Nothing p
           Ops.emptySequence
           (removeLabelSeq $ Ops.andThen'
             (appendLabelSeq ix a)
             (f (ix + 1) rest a))
           where (p:rest) = normalize ps
-buildConstructor (Possibly p a) = Ops.eitherOr p a Ops.emptySequence
+buildConstructor (Possibly t p a) = Ops.eitherOr t p a Ops.emptySequence
 buildConstructor (Series as) = f 0 as
   where f _ [] = Ops.emptySequence
         f ix [a] = appendLabelSeq ix a

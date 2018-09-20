@@ -38,7 +38,7 @@ By adding, you're basically identifying the states between the two copies, there
 -- p = 1/(1+e)
 
 geometricRepeat :: Prob -> MatSeq s -> MatSeq s
-geometricRepeat p (MatSeq {..}) = possibly (1-p) $ MatSeq {
+geometricRepeat p (MatSeq {..}) = possibly Nothing (1-p) $ MatSeq {
     trans = trans'
   , stateLabels = appendLabel 0 stateLabels
   }
