@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections, RecordWildCards, DeriveTraversable, DeriveFunctor, ViewPatterns, FlexibleInstances #-}
+{-# LANGUAGE TupleSections, RecordWildCards, DeriveTraversable, DeriveFunctor, ViewPatterns, FlexibleInstances, OverloadedLists #-}
 module Sequence.Constructors where
 
 import Sequence.Matrix.Types
@@ -6,6 +6,9 @@ import Data.Vector (Vector)
 import Data.Fix
 import Data.List
 import qualified Data.Vector as V
+
+import Sequence.Tags.Utils
+import Control.Monad.State hiding (state)
 
 data Constructor s t =
     EmptySequence
@@ -119,6 +122,11 @@ skipDist ps a = Fix $ SkipDist ps a
 matrixForm :: (MatSeq s) -> ProbSeq s
 matrixForm m = Fix $ MatrixForm m
 
+eitherOrM :: Prob -> ProbSeq s -> ProbSeq s -> State TagGen (ProbSeq s, Tag Bool)
+eitherOrM p a b = do
+  t <- newTag [True, False]
+  return (Fix $ EitherOr (Just (tagId t)) p a b, t)
+
 eitherOr :: Prob -> ProbSeq s -> ProbSeq s -> ProbSeq s
 eitherOr p a b = Fix $ EitherOr Nothing p a b
 
@@ -140,17 +148,37 @@ collapse f g n a = Fix $ Collapse f g n a
 possibly :: Prob -> ProbSeq s -> ProbSeq s
 possibly p a = Fix $ Possibly Nothing p a
 
+uniformDistOverM :: [ProbSeq s] -> State TagGen (ProbSeq s, Tag Int)
+uniformDistOverM as = do
+  t <- newTag [0..length as - 1]
+  return (Fix $ UniformDistOver (Just (tagId t)) as, t)
+
 uniformDistOver :: [ProbSeq s] -> ProbSeq s
 uniformDistOver as = Fix $ UniformDistOver Nothing as
 
+finiteDistOverM :: [(ProbSeq s, Prob)] -> State TagGen (ProbSeq s, Tag Int)
+finiteDistOverM pairs = do
+  t <- newTag [0..length pairs - 1]
+  return (Fix $ FiniteDistOver (Just (tagId t)) pairs, t)
+
 finiteDistOver :: [(ProbSeq s, Prob)] -> ProbSeq s
 finiteDistOver pairs = Fix $ FiniteDistOver Nothing pairs
+
+uniformDistRepeatM :: Int -> ProbSeq s -> State TagGen (ProbSeq s, Tag Int)
+uniformDistRepeatM n a = do
+  t <- newTag [0..n-1]
+  return (Fix $ UniformDistRepeat (Just (tagId t)) n a, t)
 
 uniformDistRepeat :: Int -> ProbSeq s -> ProbSeq s
 uniformDistRepeat n a = Fix $ UniformDistRepeat Nothing n a
 
 uniformDistRepeat' :: Int -> ProbSeq s -> ProbSeq s
 uniformDistRepeat' n a = Fix $ UniformDistRepeat' Nothing n a
+
+finiteDistRepeatM :: [Prob] -> ProbSeq s -> State TagGen (ProbSeq s, Tag Int)
+finiteDistRepeatM ps a = do
+  t <- newTag [0..length ps - 1]
+  return (Fix $ FiniteDistRepeat (Just (tagId t)) ps a, t)
 
 finiteDistRepeat :: [Prob] -> ProbSeq s -> ProbSeq s
 finiteDistRepeat ps a = Fix $ FiniteDistRepeat Nothing ps a
