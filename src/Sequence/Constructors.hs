@@ -113,6 +113,9 @@ emptySequence = Fix $ EmptySequence
 state :: s -> ProbSeq s
 state v = Fix $ State v
 
+states :: [s] -> ProbSeq s
+states = series . map state
+
 skip :: Int -> ProbSeq s
 skip n = Fix $ Skip n
 
