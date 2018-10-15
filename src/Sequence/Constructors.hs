@@ -28,6 +28,7 @@ data Constructor s t =
   | UniformDistOver (Maybe Int) [t]
   | FiniteDistOver (Maybe Int) [(t, Prob)]
   | FiniteDistRepeat (Maybe Int) [Prob] t
+  | FiniteDistRepeatTerm (Maybe Int) t [Prob] t
   | FiniteDistRepeat' (Maybe Int) [Prob] t
   | UniformDistRepeat (Maybe Int) Int t
   | UniformDistRepeat' (Maybe Int) Int t
@@ -178,10 +179,17 @@ uniformDistRepeat n a = Fix $ UniformDistRepeat Nothing n a
 uniformDistRepeat' :: Int -> ProbSeq s -> ProbSeq s
 uniformDistRepeat' n a = Fix $ UniformDistRepeat' Nothing n a
 
+  -- starts from 1, can't represent 0 repeats with tagging
+  -- 2n states
 finiteDistRepeatM :: [Prob] -> ProbSeq s -> State TagGen (ProbSeq s, Tag Int)
 finiteDistRepeatM ps a = do
+  t <- newTag [1..length ps]
+  return (Fix $ FiniteDistRepeatTerm (Just (tagId t)) a ps a, t)
+
+finiteDistRepeatTermM :: ProbSeq s -> [Prob] -> ProbSeq s -> State TagGen (ProbSeq s, Tag Int)
+finiteDistRepeatTermM term ps a = do
   t <- newTag [0..length ps - 1]
-  return (Fix $ FiniteDistRepeat (Just (tagId t)) ps a, t)
+  return (Fix $ FiniteDistRepeatTerm (Just (tagId t)) term ps a, t)
 
 finiteDistRepeat :: [Prob] -> ProbSeq s -> ProbSeq s
 finiteDistRepeat ps a = Fix $ FiniteDistRepeat Nothing ps a

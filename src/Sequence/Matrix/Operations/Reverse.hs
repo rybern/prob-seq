@@ -31,7 +31,7 @@ reverseSequence' t = joinTransTokens (mainStart', mainTrans', endsStart, endsTra
 
 reverseSequence :: MatSeq s -> MatSeq s
 reverseSequence s = s {
-    trans = normalize $ joinTransTokens (mainStart', mainTrans', endsStart, endsTrans')
+    trans = normalizeMat $ joinTransTokens (mainStart', mainTrans', endsStart, endsTrans')
   , stateLabels = appendLabel 0 $ stateLabels s
   }
   where squareTrans = collapseEnds $ trans s

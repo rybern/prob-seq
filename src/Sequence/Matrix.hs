@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, FlexibleContexts #-}
+{-# LANGUAGE DeriveFunctor, TupleSections, FlexibleContexts #-}
 module Sequence.Matrix ( buildConstructor
                        , buildMatSeqTree
                        , buildMatSeq
@@ -44,7 +44,8 @@ buildConstructor (Collapse _ f n a1) = Ops.collapse f n a1
 buildConstructor (UniformDistOver t seqs) =
   let uniform = recip . fromIntegral . length $ seqs
   in buildConstructor $ FiniteDistOver t $ map (\seq -> (seq, uniform)) seqs
-buildConstructor (FiniteDistOver t pairs) = f . map (\(i, (a, p)) -> (appendLabelSeq i a, p)) . zip [0..] $ pairs
+-- TODO fix tag
+buildConstructor (FiniteDistOver t pairs) = f . map (\(i, (a, p)) -> (appendLabelSeq' t i a, p)) . zip [0..] $ pairs
   where f [(a, _)] = a
         f ((a, p) : rest) = removeLabelSeq . Ops.eitherOr Nothing p a $
           f $ map (\(a', p') -> (a', p' / (1 - p))) rest
@@ -54,20 +55,30 @@ buildConstructor (UniformDistRepeat t n s) =
 buildConstructor (UniformDistRepeat' t n s) =
   let uniform = recip . fromIntegral . succ $ n
   in buildConstructor $ FiniteDistRepeat' t (replicate (n+1) uniform) s
+-- TODO fix tag
 buildConstructor (FiniteDistRepeat t ps a) = f 0 ps a
   where f _ [] _ = Ops.emptySequence
         f ix ps a = removeLabelSeq $ Ops.eitherOr Nothing p
           Ops.emptySequence
           (removeLabelSeq $ Ops.andThen
+            (appendLabelSeq' t ix a)
+            (f (ix + 1) rest a))
+          where (p:rest) = normalize ps
+buildConstructor (FiniteDistRepeatTerm t term ps a) = f 0 ps a
+  where f _ [] _ = Ops.emptySequence
+        f ix ps a = removeLabelSeq $ Ops.eitherOr Nothing p
+          (appendTagSeq ((,ix) <$> t) term)
+          (removeLabelSeq $ Ops.andThen
             (appendLabelSeq ix a)
             (f (ix + 1) rest a))
           where (p:rest) = normalize ps
+-- TODO fix tag
 buildConstructor (FiniteDistRepeat' t ps a) = f 0 ps a
   where f _ [] _ = Ops.emptySequence
         f ix ps a = removeLabelSeq $ Ops.eitherOr Nothing p
           Ops.emptySequence
           (removeLabelSeq $ Ops.andThen'
-            (appendLabelSeq ix a)
+            (appendLabelSeq' t ix a)
             (f (ix + 1) rest a))
           where (p:rest) = normalize ps
 buildConstructor (Possibly t p a) = Ops.eitherOr t p a Ops.emptySequence
@@ -83,8 +94,3 @@ buildConstructor (Series' as) =
   foldl1 (\a b -> removeLabelSeq $ Ops.andThen' a b) (zipWith appendLabelSeq [0..] as)
 buildConstructor (Repeat n a) = buildConstructor (Series (replicate n a))
 buildConstructor (Repeat' n a) = buildConstructor (Series' (replicate n a))
-
-normalize :: (Traversable t) => t Prob -> t Prob
-normalize t = let s = sum t in if s == 0
-                               then (const (1 / fromIntegral (length t))) <$> t
-                               else (/ s) <$> t

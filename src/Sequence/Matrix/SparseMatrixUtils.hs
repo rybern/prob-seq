@@ -89,8 +89,8 @@ popLastCol m = (M.col m lastIx, M.delCol lastIx m)
 onehotVector :: M.Index -> Int -> M.SparseVector
 onehotVector hot len = M.vecIns (M.zeroVec len) (hot, 1.0)
 
-normalize :: M.SparseMatrix -> M.SparseMatrix
-normalize = M.mapOnRows normalizeVec
+normalizeMat :: M.SparseMatrix -> M.SparseMatrix
+normalizeMat = M.mapOnRows normalizeVec
 
 normalizeVec :: M.SparseVector -> M.SparseVector
 normalizeVec r = (recip $ M.sumV r) `M.scaleV` r

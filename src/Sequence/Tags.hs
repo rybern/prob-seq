@@ -39,8 +39,14 @@ subsetIxs ixs (Posterior ems) = Posterior $ IntMap.restrictKeys ems ixs
 unionPosts :: [Posterior] -> Posterior
 unionPosts = Posterior . IntMap.unions . fmap unposterior
 
-tagDist :: (Ord t) => Tag t -> Query (Map t (Posterior))
-tagDist (Tag { tagId = tagId, values = values }) = do
+tagDist :: (Ord t) => Tag t -> Query (Map t Prob)
+tagDist t = do
+  parts <- tagPartition t
+  return $ normalize . fmap (sum . unposterior) $ parts
+
+
+tagPartition :: (Ord t) => Tag t -> Query (Map t Posterior)
+tagPartition (Tag { tagId = tagId, values = values }) = do
   (post, ixs) <- ask
   let ixsVec = case IntMap.lookup tagId ixs of
         Nothing -> error "Using a tag that isn't in MatSeq"
@@ -61,7 +67,7 @@ observe ems s = (runTagGen s) ems
 
 partitionPost :: (Ord c) => Tag c -> (c -> Bool) -> Query (Posterior, Posterior)
 partitionPost t pred = do
-  dist <- tagDist t
+  dist <- tagPartition t
   let (true, false) = Map.partitionWithKey (\k _ -> pred k) dist
       join = unionPosts . Map.elems
   return (join true, join false)

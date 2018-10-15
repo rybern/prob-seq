@@ -73,6 +73,17 @@ removeLabel = V.map (\(StateLabel l (StateTag _ (t:_)) s) -> StateLabel l t s)
 appendLabelSeq :: Int -> MatSeq a -> MatSeq a
 appendLabelSeq label seq = seq { stateLabels = appendLabel label (stateLabels seq) }
 
+appendLabelSeq' :: (Maybe Int) -> Int -> MatSeq a -> MatSeq a
+appendLabelSeq' mTagID label seq = seq { stateLabels = appendLabel' mTagID label (stateLabels seq) }
+
+appendTagSeq :: Maybe (Int, Int) -> MatSeq a -> MatSeq a
+appendTagSeq mTag seq = seq { stateLabels = appendTag mTag (stateLabels seq) }
+
+appendTag :: Maybe (Int, Int) -> Vector (StateLabel s) -> Vector (StateLabel s)
+appendTag mTag  = V.map (\(StateLabel l t s) ->
+                            (StateLabel l t
+                              (maybe s (\(tagID, label) -> IntMap.insert tagID label s) mTag)))
+
 appendLabel :: Int -> Vector (StateLabel s) -> Vector (StateLabel s)
 appendLabel label = V.map (\(StateLabel l t s) ->
                               (StateLabel l (StateTag label [t]) s))
