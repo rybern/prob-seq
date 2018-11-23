@@ -22,39 +22,39 @@ extra-source-files:  README.md
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Sequence
-                     , Sequence.Tags
-                     , Sequence.Tags.Utils
-                     , Sequence.Constructors
-                     , Sequence.Matrix
-                     , Sequence.Matrix.Sampling
-                     , Sequence.Matrix.Emissions
-                     , Sequence.Matrix.IO
-                     , Sequence.Matrix.Operations
-                     , Sequence.Matrix.Operations.AndThen
-                     , Sequence.Matrix.Operations.Collapsing
-                     , Sequence.Matrix.Operations.Deterministic
-                     , Sequence.Matrix.Operations.EitherOr
-                     , Sequence.Matrix.Operations.Filtering
-                     , Sequence.Matrix.Operations.Geometric
-                     , Sequence.Matrix.Operations.Insertion
-                     , Sequence.Matrix.Operations.Products
-                     , Sequence.Matrix.Operations.Reverse
-                     , Sequence.Matrix.Operations.SkipDist
-                     , Sequence.Matrix.Types
-                     , Sequence.Types
-                     , Sequence.Matrix.IO.Write
-                     , Sequence.Matrix.IO.Read
-                     , Sequence.Matrix.IO.StateLabels
-                     , Sequence.Matrix.IO.TransMatrix
-                     , Sequence.Matrix.ProbSeqMatrixUtils
-                     , Sequence.Matrix.SparseMatrixUtils
+  exposed-modules:     SMoL
+                     , SMoL.Tags
+                     , SMoL.Tags.Utils
+                     , SMoL.Constructors
+                     , SMoL.Matrix
+                     , SMoL.Matrix.Sampling
+                     , SMoL.Matrix.Emissions
+                     , SMoL.Matrix.IO
+                     , SMoL.Matrix.Operations
+                     , SMoL.Matrix.Operations.AndThen
+                     , SMoL.Matrix.Operations.Collapsing
+                     , SMoL.Matrix.Operations.Deterministic
+                     , SMoL.Matrix.Operations.EitherOr
+                     , SMoL.Matrix.Operations.Filtering
+                     , SMoL.Matrix.Operations.Geometric
+                     , SMoL.Matrix.Operations.Insertion
+                     , SMoL.Matrix.Operations.Products
+                     , SMoL.Matrix.Operations.Reverse
+                     , SMoL.Matrix.Operations.SkipDist
+                     , SMoL.Matrix.Types
+                     , SMoL.Types
+                     , SMoL.Matrix.IO.Write
+                     , SMoL.Matrix.IO.Read
+                     , SMoL.Matrix.IO.StateLabels
+                     , SMoL.Matrix.IO.TransMatrix
+                     , SMoL.Matrix.ProbSeqMatrixUtils
+                     , SMoL.Matrix.SparseMatrixUtils
+                     , SMoL.Inference
                      , SparseMatrix
                      , Data.Fix
-                     , Inference
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5
-                     , sparse-lin-alg
+                     -- , sparse-lin-alg
                      , vector
                      , MonadRandom
                      , monad-loops
@@ -83,7 +83,7 @@ test-suite smol-test
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5
                      , smol
-                     , sparse-lin-alg
+                     -- , parse-lin-alg
                      , vector
                      , MonadRandom
                      , monad-loops

@@ -25,9 +25,11 @@ newtype SparseVector = SV SparseMatrix
   deriving Show
 type CTriplet = I.CTriplet CDouble
 
+instance Semigroup SparseVector where
+  (SV a) <> (SV b) = SV $ hconcat [a, b]
+
 instance Monoid SparseVector where
   mempty = SV emptyMx
-  mappend (SV a) (SV b) = SV $ hconcat [a, b]
 
 unSM :: SparseMatrix -> M.SparseMatrixXd
 unSM (SM m) = m
