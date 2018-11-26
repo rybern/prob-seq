@@ -50,6 +50,7 @@ library
                      , SMoL.Matrix.ProbSeqMatrixUtils
                      , SMoL.Matrix.SparseMatrixUtils
                      , SMoL.Inference
+                     , SMoL.Likelihood
                      , SparseMatrix
                      , Data.Fix
   default-language:    Haskell2010
@@ -71,6 +72,11 @@ library
                      , bytestring
                      , bytestring-conversion
                      , eigen
+                     , matrix
+                     , ad
+                     , normaldistribution
+                     , random
+
 
 test-suite smol-test
   type:                exitcode-stdio-1.0
