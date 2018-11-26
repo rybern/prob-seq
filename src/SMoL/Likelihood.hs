@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards, OverloadedLists #-}
+{-# LANGUAGE TupleSections, ViewPatterns, RecordWildCards, OverloadedLists #-}
 module SMoL.Likelihood where
 
 import Data.Vector (Vector)
@@ -6,7 +6,7 @@ import qualified Data.Vector as V
 import Data.Matrix
 import Control.Applicative
 import SMoL
-import Data.List (nub)
+import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
 
@@ -33,9 +33,9 @@ sampleNormal ms = do
   put gen'
   return res
 
-sampleNormalSequence :: (Ord a, Floating b, Real b) => StdGen -> Map a (b, b) -> Vector a -> Vector b
-sampleNormalSequence gen normals seq =
-  flip evalState gen $ V.mapM (\(m, s) -> realToFrac <$> sampleNormal (realToFrac m :: Double, realToFrac s)) normalsSeq
+sampleNormalSequence :: (Ord a, Floating b, Real b) => Map a (b, b) -> Vector a -> State StdGen (Vector b)
+sampleNormalSequence normals seq =
+  V.mapM (\(m, s) -> realToFrac <$> sampleNormal (realToFrac m :: Double, realToFrac s)) normalsSeq
   where (Just normalsSeq) = V.mapM (flip Map.lookup normals) seq
 
 symbolDist :: (Floating b, Eq b) => Vector (b, b) -> Vector b -> VecMat b
@@ -44,31 +44,60 @@ symbolDist normals seq = flip V.map seq
 
 -- this should take Vector b, the data to take the likelihood over
 testLikelihoodNormals :: (Eq a, Ord a, Show a, Floating b, Eq b, Show b, Real b)
-                      => StdGen -> ProbSeq a -> Vector a -> Map a (b, b) -> Map a (b, b) -> b
-testLikelihoodNormals gen ps syms generatingNormals modelNormals = infer likelihood ems ms
+                      => ProbSeq a -> Vector b -> Map a (b, b) -> b
+testLikelihoodNormals ps dat modelNormals = infer likelihood ems ms
   where ms = compileSMoL ps
         allSyms = nub . V.toList . V.map stateLabel . stateLabels $ ms
-        ems = simulateEmissionsNormals gen allSyms generatingNormals modelNormals syms
+        ems = simulateEmissionsNormals dat allSyms modelNormals
 
 string = replicate 100 'a' ++ replicate 100 'b'
 
 -- next: separate out sampling from fitting
 --       multiple samples, jointly, adding loglike
 
-meanLL :: (Floating b, Real b, Show b)
-       => StdGen -> [b] -> b
-meanLL gen [x,y] =
-  log $ testLikelihoodNormals gen (symbols string) (V.fromList string) (testStates (1,-1)) (testStates (x,y))
+meanLL :: (Floating b, Real b, Show b, Real c, Ord a, Show a)
+       => ProbSeq a -> Vector c -> Map a b -> b
+meanLL ps (V.map realToFrac -> dat) means =
+  log $ testLikelihoodNormals ps dat (Map.map (,1) means)
 
-meanDiffs :: IO [Double]
-meanDiffs = do
-  gen <- getStdGen
-  return $ grad (meanLL gen) [0,0]
+meanLLs :: (Floating b, Real b, Show b, Real c, Ord a, Show a)
+        => ProbSeq a -> [Vector c] -> Map a b -> b
+meanLLs ps dats init =
+  sum . map (\dat -> meanLL ps dat init) $ dats
 
-meanDescent :: IO [[Double]]
-meanDescent = do
+meanDescent1 model = meanDescent' 100 10 model (Map.fromList [('a',0), ('b',0)]) (Map.fromList [('a',-1),('b',1)])
+
+meanDescent :: (Ord a, Show a) => Int -> Int -> ProbSeq a -> Map a Double -> Map a Double -> IO [Map a Double]
+meanDescent nSeqs nSamples model modelMeans generatingMeans = do
+  let ms = compileSMoL model
+      generatingNorms = Map.map (,1) generatingMeans
+  seqs <- replicateM nSeqs $ fst <$> sampleSeq vecDist ms
   gen <- getStdGen
-  return $ gradientAscent (meanLL gen) [0,0]
+  let labeledDats = flip evalState gen $
+        (concat <$>) . forM seqs $ \seq ->
+          (map (seq,) <$>) . replicateM nSamples $
+            sampleNormalSequence generatingNorms seq
+      dats = map snd labeledDats
+      trueMeans = calcTrueMeans labeledDats
+  --putStrLn . ("True means: " ++) . intercalate "\t" . map (\(k, v) -> show k ++ ":" ++ show v) $ Map.toList trueMeans
+  return $ gradientAscent (meanLLs model dats) (Map.map realToFrac modelMeans)
+
+calcTrueMeans :: (Fractional b, Ord a) => [(Vector a, Vector b)] -> Map a b
+calcTrueMeans labaledDats =
+    Map.map mean
+  . Map.fromListWith (++)
+  . map (\(a, b) -> (a, [b]))
+  . concat
+  . map (V.toList . uncurry V.zip)
+  $ labaledDats
+  where mean xs = sum xs / fromIntegral (length xs)
+
+meanDescent' :: (Ord a, Show a) => Int -> Int -> ProbSeq a -> Map a Double -> Map a Double -> IO ()
+meanDescent' nSeqs nSamples model modelMeans generatingMeans = do
+  putStrLn . intercalate "\t" . map (\(k, v) -> show k ++ ":" ++ show v) $ Map.toList modelMeans
+  updates <- meanDescent nSeqs nSamples model modelMeans generatingMeans
+  forM_ updates $ \update -> do
+    putStrLn . intercalate "\t" . map (\(k, v) -> show k ++ ":" ++ show v) $ Map.toList update
 
 testLikelihood :: (Eq a, Ord a, Show a) => ProbSeq a -> Prob -> [a] -> Double
 testLikelihood ps p syms = infer likelihood ems ms
@@ -77,13 +106,12 @@ testLikelihood ps p syms = infer likelihood ems ms
         ems = simulateEmissionsUniform allSyms p (V.fromList syms)
 
 simulateEmissionsNormals :: (Eq b, Floating b, Real b, Ord a)
-                         => StdGen -> [a] -> Map a (b, b) -> Map a (b, b) -> Vector a -> Emissions b a
-simulateEmissionsNormals gen allSyms generatingNormals modelNormals syms = Emissions {
+                         => Vector b -> [a] -> Map a (b, b) -> Emissions b a
+simulateEmissionsNormals dat allSyms modelNormals = Emissions {
     emissionMat = symbolDist allNormals dat
   , indexMap = Map.fromList $ zip allSyms [0..]
   }
   where (Just allNormals) = V.mapM (\sym -> Map.lookup sym modelNormals) (V.fromList allSyms)
-        dat = sampleNormalSequence gen generatingNormals syms
 
 simulateEmissionsUniform :: (Ord a) => [a] -> Prob -> Vector a -> Emissions Double a
 simulateEmissionsUniform allSym p = simulateEmissions allSym toEm
