@@ -50,6 +50,7 @@ library
                      , SMoL.Matrix.ProbSeqMatrixUtils
                      , SMoL.Matrix.SparseMatrixUtils
                      , SMoL.Inference
+                     , SMoL.DirichletInference
                      , SMoL.Likelihood
                      , SparseMatrix
                      , Data.Fix
