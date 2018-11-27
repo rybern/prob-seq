@@ -82,6 +82,9 @@ meanDescent nSeqs nSamples model modelMeans generatingMeans = do
   --putStrLn . ("True means: " ++) . intercalate "\t" . map (\(k, v) -> show k ++ ":" ++ show v) $ Map.toList trueMeans
   return $ gradientAscent (meanLLs model dats) (Map.map realToFrac modelMeans)
 
+-- Important:
+-- This is maximum likelihood, we need maximum posterior. Need to include prior distributions on means. Easy.
+
 calcTrueMeans :: (Fractional b, Ord a) => [(Vector a, Vector b)] -> Map a b
 calcTrueMeans labaledDats =
     Map.map mean
