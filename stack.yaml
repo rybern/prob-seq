@@ -10,6 +10,10 @@ extra-deps:
 - eigen-3.3.4.0
 - containers-0.5.11.0
 - normaldistribution-1.1.0.3
+- gamma-0.9.0.2
+- continued-fractions-0.9.1.1
+- converge-0.1.0.1
+
 #- containers-0.5.8.1
 
 flags: {}

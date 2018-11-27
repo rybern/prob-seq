@@ -77,6 +77,8 @@ library
                      , ad
                      , normaldistribution
                      , random
+                     , reflection
+                     , gamma
 
 
 test-suite smol-test
