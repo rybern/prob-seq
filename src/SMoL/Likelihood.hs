@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections, ViewPatterns, RecordWildCards, OverloadedLists #-}
+{-# LANGUAGE RankNTypes, TupleSections, ViewPatterns, RecordWildCards, OverloadedLists #-}
 module SMoL.Likelihood where
 
 import Data.Vector (Vector)
@@ -65,10 +65,23 @@ meanLLs :: (Floating b, Real b, Show b, Real c, Ord a, Show a)
 meanLLs ps dats init =
   sum . map (\dat -> meanLL ps dat init) $ dats
 
-meanDescent1 model = meanDescent' 100 10 model (Map.fromList [('a',0), ('b',0)]) (Map.fromList [('a',-1),('b',1)])
+meanPost :: (Floating b, Real b, Show b, Real c, Ord a, Show a)
+         => ProbSeq a -> Vector c -> Map a (c, c) -> Map a b -> b
+meanPost ps dat (Map.map (\(m,s) -> (realToFrac m, realToFrac s)) -> priors) means =
+  meanLL ps dat means + sum (Map.intersectionWith (\prior mean -> log $ normalDensity prior mean) priors means)
 
-meanDescent :: (Ord a, Show a) => Int -> Int -> ProbSeq a -> Map a Double -> Map a Double -> IO [Map a Double]
-meanDescent nSeqs nSamples model modelMeans generatingMeans = do
+meanPosts :: (Floating b, Real b, Show b, Real c, Ord a, Show a)
+          => ProbSeq a -> [Vector c] -> Map a (c, c) -> Map a b -> b
+meanPosts ps dats priors init =
+  sum . map (\dat -> meanPost ps dat priors init) $ dats
+
+meanDescent1 model = meanDescent' 100 10 model
+  (Map.fromList [('a',0), ('b',0)])
+  (Map.fromList [('a', (0,100)), ('b', (0,100))])
+  (Map.fromList [('a',-1),('b',1)])
+
+meanDescent :: (Ord a, Show a) => Int -> Int -> ProbSeq a -> Map a Double -> Map a (Double, Double) -> Map a Double -> IO [Map a Double]
+meanDescent nSeqs nSamples model modelMeans modelPriors generatingMeans = do
   let ms = compileSMoL model
       generatingNorms = Map.map (,1) generatingMeans
   seqs <- replicateM nSeqs $ fst <$> sampleSeq vecDist ms
@@ -80,7 +93,7 @@ meanDescent nSeqs nSamples model modelMeans generatingMeans = do
       dats = map snd labeledDats
       trueMeans = calcTrueMeans labeledDats
   --putStrLn . ("True means: " ++) . intercalate "\t" . map (\(k, v) -> show k ++ ":" ++ show v) $ Map.toList trueMeans
-  return $ gradientAscent (meanLLs model dats) (Map.map realToFrac modelMeans)
+  return $ gradientAscent (meanPosts model dats modelPriors) (Map.map realToFrac modelMeans)
 
 -- Important:
 -- This is maximum likelihood, we need maximum posterior. Need to include prior distributions on means. Easy.
@@ -95,10 +108,10 @@ calcTrueMeans labaledDats =
   $ labaledDats
   where mean xs = sum xs / fromIntegral (length xs)
 
-meanDescent' :: (Ord a, Show a) => Int -> Int -> ProbSeq a -> Map a Double -> Map a Double -> IO ()
-meanDescent' nSeqs nSamples model modelMeans generatingMeans = do
+meanDescent' :: (Ord a, Show a) => Int -> Int -> ProbSeq a -> Map a Double -> Map a (Double, Double) -> Map a Double -> IO ()
+meanDescent' nSeqs nSamples model modelMeans modelPriors generatingMeans = do
   putStrLn . intercalate "\t" . map (\(k, v) -> show k ++ ":" ++ show v) $ Map.toList modelMeans
-  updates <- meanDescent nSeqs nSamples model modelMeans generatingMeans
+  updates <- meanDescent nSeqs nSamples model modelMeans modelPriors generatingMeans
   forM_ updates $ \update -> do
     putStrLn . intercalate "\t" . map (\(k, v) -> show k ++ ":" ++ show v) $ Map.toList update
 
