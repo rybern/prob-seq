@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes, TupleSections, ViewPatterns, RecordWildCards, OverloadedLists #-}
-module SMoL.Likelihood where
+module SMoL.EmissionsInference where
 
 import Data.Vector (Vector)
 import qualified Data.Vector as V

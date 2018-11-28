@@ -7,26 +7,51 @@ import Control.Monad.Reader
 import Data.Map (Map)
 import qualified Data.Map as Map
 -- import Numeric.AD
+import Control.Applicative
 import Numeric.AD.Mode.Reverse as Reverse
 import Numeric.AD.Internal.Reverse (Tape)
 import Math.Gamma
 import Data.Reflection
 
 type DirichletTag = ([Double], Tag Int)
+type Queries = Reader [(Posterior, TagIxs)]
 
-branchMAP :: DirichletTag -> Query [Double]
-branchMAP (prior, tag) = do
-  likelihoodMap <- tagDist tag
-  let (Just likelihoods) = mapM (flip Map.lookup likelihoodMap) [0..length prior-1]
-      steps = dirichletMAP prior [likelihoods]
+mapQueries :: Query a -> Queries [a]
+mapQueries q = do
+  vals <- ask
+  return $ map (\val -> runReader q val) vals
+
+toQuery :: Queries a -> Query a
+toQuery q = do
+  val <- ask
+  return $ runReader q [val]
+
+branchMAP :: DirichletTag -> Query [[Double]]
+branchMAP tag = toQuery (branchMAPs tag)
+
+branchMAPs :: DirichletTag -> Queries [[Double]]
+branchMAPs (prior, tag) = do
+  likelihoodMaps <- mapQueries (tagDist tag)
+  let getLikelihood likelihoodMap =
+        case mapM (flip Map.lookup likelihoodMap) [1..length prior] of
+          (Just likelihoods) -> likelihoods
+          Nothing -> case mapM (flip Map.lookup likelihoodMap) [0..length prior-1] of
+            (Just likelihoods) -> likelihoods
+            Nothing -> error (show likelihoodMap ++ ", " ++ show (length prior))
+      likelihoodss = map getLikelihood likelihoodMaps
+      steps = dirichletMAP prior likelihoodss
   return steps
+
+takeUntilPair :: (a -> a -> Bool) -> [a] -> [a]
+takeUntilPair p l@(y:x:xs) = if p y x then [y] else y:takeUntilPair p (x:xs)
+takeUntilPair _ xs = xs
 
 dropUntilPair :: (a -> a -> Bool) -> [a] -> [a]
 dropUntilPair p l@(y:x:xs) = if p y x then l else dropUntilPair p (x:xs)
 dropUntilPair _ xs = xs
 
-converged :: Double -> [Double] -> [Double] -> Bool
-converged eps xs1 xs2 = (< eps) . maximum $ zipWith (\x1 x2 -> abs (x1 - x2)) xs1 xs2
+converged :: (Ord a, Traversable t, Applicative t, Num a) => a -> t a -> t a -> Bool
+converged eps xs1 xs2 = (< eps) . maximum $ liftA2 (\x1 x2 -> abs (x1 - x2)) xs1 xs2
 
 test = dirichletMAP [3, 3, 3] (replicate 10 [0.2, 0.5, 0.3])
 test' = dirichletGrad [0.1, 0.8, 0.1] [[0.1, 0.8, 0.1]]
@@ -34,10 +59,11 @@ test' = dirichletGrad [0.1, 0.8, 0.1] [[0.1, 0.8, 0.1]]
 normalizePs :: (Traversable t, Fractional a, Eq a, Ord a) => t a -> t a
 normalizePs = fmap (max 0.0001 . min 1) . normalize
 
-dirichletMAP :: [Double] -> [[Double]] -> [Double]
-dirichletMAP psPrior branchLikelihoods = head . dropUntilPair (converged 0.000001) $ gradientAscent posterior normalizePs (normalize psPrior)
+dirichletMAP :: [Double] -> [[Double]] -> [[Double]]
+dirichletMAP psPrior branchLikelihoods = (initial:) $ gradientAscent posterior normalizePs initial
   where posterior :: (Floating a, Real a) => [a] -> a
         posterior = dirichletPosterior (map realToFrac psPrior) (map (map realToFrac) branchLikelihoods)
+        initial = normalize psPrior
 
 dirichletGrad :: [Double] -> [[Double]] -> [Double]
 dirichletGrad psPrior branchLikelihoods = grad posterior psPrior

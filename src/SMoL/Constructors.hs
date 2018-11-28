@@ -160,13 +160,13 @@ uniformDistOverM as = do
 uniformDistOver :: [ProbSeq s] -> ProbSeq s
 uniformDistOver as = Fix $ UniformDistOver Nothing as
 
-finiteDistDirichletM :: [ProbSeq s] -> [Double] -> State TagGen (ProbSeq s, (Tag Int, [Double]))
-finiteDistDirichletM seqs theta = do
+finiteDistOverDirichletM :: [ProbSeq s] -> [Double] -> State TagGen (ProbSeq s, ([Double], Tag Int))
+finiteDistOverDirichletM seqs theta = do
   let n = length seqs
   when (n /= length theta) $ error "Dirichlet theta needs as many parameters as branches"
   t <- newTag [0..length seqs - 1]
   let uniform = replicate n (1 / fromIntegral n)
-  return (Fix $ FiniteDistOver (Just (tagId t)) (zip seqs uniform), (t, theta))
+  return (Fix $ FiniteDistOver (Just (tagId t)) (zip seqs uniform), (theta, t))
 
 finiteDistOverM :: [(ProbSeq s, Prob)] -> State TagGen (ProbSeq s, Tag Int)
 finiteDistOverM pairs = do

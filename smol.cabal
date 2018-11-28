@@ -51,7 +51,7 @@ library
                      , SMoL.Matrix.SparseMatrixUtils
                      , SMoL.Inference
                      , SMoL.DirichletInference
-                     , SMoL.Likelihood
+                     , SMoL.EmissionsInference
                      , SparseMatrix
                      , Data.Fix
   default-language:    Haskell2010
